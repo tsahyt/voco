@@ -15,9 +15,8 @@ module Network.Voco.Bot (
     refine,
     query,
     -- * IRC Actions
-    IRCAction(..),
-    Channel,
-    User
+    IRCAction,
+    perform
 ) where
 
 import Control.Applicative
@@ -31,24 +30,14 @@ import Data.Bifunctor
 import Data.Monoid
 import Data.Profunctor
 import Data.Text (Text)
+import Network.Yak (SomeMsg)
 
 import Prelude hiding ((.), id)
 
-type Channel = Text
+-- | An IRC action is simply some message that shall be sent back to the server.
+type IRCAction = SomeMsg
 
-type User = Text
-
-data IRCAction
-    = Message Channel
-              Text
-    | Kick Channel
-           User
-           (Maybe Text)
-    | Join Channel
-    | Part Channel
-    deriving (Show)
-
-
+-- | The bot abstraction provides a composable way to define IRC bots.
 newtype Bot m i o = Bot
     { runBot' :: i -> MaybeT m (o, [IRCAction])
     } deriving (Functor)
@@ -178,6 +167,7 @@ refine f (Bot k) =
 query :: Monad m => Bot m i i
 query = Bot $ \i -> pure (i, [])
 
--- | Perform (i.e. log) an 'IRCAction'.
+-- | Perform an 'IRCAction'. For most uses, the convenience functions in
+-- "Network.Voco.Action" are preferable.
 perform :: Monad m => IRCAction -> Bot m i ()
 perform a = Bot $ \_ -> pure ((), [a])
