@@ -12,7 +12,9 @@ module Network.Voco.Action
     , notice
     , noticeUser
     , join
+    , join'
     , part
+    , part'
     , nick
     ) where
 
@@ -50,8 +52,14 @@ noticeUser n m = perform $ SomeMsg (build [Right n] m :: Notice)
 join :: Monad m => NonEmpty Channel -> Bot m i ()
 join cs = perform $ SomeMsg (build cs [] :: Join)
 
+join' :: Monad m => Channel -> Bot m i ()
+join' x = join [x]
+
 part :: Monad m => NonEmpty Channel -> Maybe Message -> Bot m i ()
 part cs m = perform $ SomeMsg (build cs m :: Part)
+
+part' :: Monad m => Channel -> Maybe Message -> Bot m i ()
+part' x = part [x]
 
 nick :: Monad m => Nickname -> Bot m i ()
 nick n = perform $ SomeMsg (build n :: Nick)
