@@ -1,0 +1,29 @@
+name:                voco
+version:             0.1.0.0
+synopsis:            An eDSL for writing IRC bots
+description:         See README.md
+homepage:            https://github.com/githubuser/voco#readme
+license:             MIT
+license-file:        LICENSE
+author:              Paul Ogris
+maintainer:          paul@tsahyt.com
+copyright:           2018 Paul Ogris
+category:            Network
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Network.Voco.Bot
+  build-depends:       base >= 4.7 && < 5,
+                       yak,
+                       transformers,
+                       mtl,
+                       profunctors,
+                       text
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/tsahyt/voco

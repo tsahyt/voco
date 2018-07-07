@@ -1,0 +1,6 @@
+resolver: lts-11.16
+packages:
+    - .
+extra-deps:
+    - github: tsahyt/yak
+      commit: 3ac984f1d88f23b91ecefc8ff03c0f46e6118fa0 
