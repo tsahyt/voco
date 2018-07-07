@@ -1,6 +1,9 @@
 module Network.Voco.Combinators
     ( parsed
     , on
+    , abort
+    , refine
+    , query
     -- * Re-exports for convenience
     , module Control.Applicative
     , module Data.Profunctor
