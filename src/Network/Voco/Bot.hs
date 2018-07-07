@@ -57,6 +57,9 @@ type IRCAction = SomeMsg
 -- For composition, bots are monads, categories, and (strong) profunctors. Most
 -- importantly bots can fail, and provide an 'Alternative' (and 'Monoid')
 -- instance.
+--
+-- For bots working on multiple possible inputs, 'Either' can be used. See
+-- "Data.Coproduct" for more.
 newtype Bot m i o = Bot
     { runBot' :: i -> MaybeT m (o, [IRCAction])
     } deriving (Functor)
