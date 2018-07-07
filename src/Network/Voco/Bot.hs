@@ -37,7 +37,26 @@ import Prelude hiding ((.), id)
 -- | An IRC action is simply some message that shall be sent back to the server.
 type IRCAction = SomeMsg
 
--- | The bot abstraction provides a composable way to define IRC bots.
+-- | The bot abstraction provides a composable way to define IRC bots. A bot is
+-- parameterized over three types. 
+--
+-- * @m@ defines the underlying monad. This allows using state, or some
+-- read-only environment. This environment is /preserved between invocations/ in
+-- the 'botloop' family of functions. 
+--
+-- * @i@ defines the type a particular 'Bot' takes as input. A "top-level" bot
+-- will always require 'ByteString' input. Bots are profunctors, the input can
+-- therefore be adjusted as necessary. The 'parsed' combinator for instance
+-- provides an easy way to adjust the input to some IRC message (as defined in
+-- "Network.Yak").
+--
+-- * @o@ defines the wrapped value of this bot computation. This does /not/
+-- define the resulting actions performed in a command. See
+-- "Network.Voco.Action" or 'perform'.
+--
+-- For composition, bots are monads, categories, and (strong) profunctors. Most
+-- importantly bots can fail, and provide an 'Alternative' (and 'Monoid')
+-- instance.
 newtype Bot m i o = Bot
     { runBot' :: i -> MaybeT m (o, [IRCAction])
     } deriving (Functor)
