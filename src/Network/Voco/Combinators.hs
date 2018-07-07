@@ -1,8 +1,14 @@
 module Network.Voco.Combinators
     ( parsed
+    , on
+    -- * Re-exports for convenience
+    , module Control.Applicative
+    , module Data.Profunctor
     ) where
 
+import Control.Applicative hiding (WrappedArrow(..))
 import Data.ByteString (ByteString)
+import Data.Profunctor
 import Network.Voco.Bot
 import Network.Yak
 
@@ -10,3 +16,7 @@ import Network.Yak
 -- bot on 'ByteString', i.e. on raw IRC input.
 parsed :: (Applicative m, Fetch i) => Bot m i o -> Bot m ByteString o
 parsed = refine fetch
+
+-- | Synonym for 'lmap'.
+on :: Functor m => (i' -> i) -> Bot m i o -> Bot m i' o
+on = lmap
