@@ -1,8 +1,12 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | Covenience functions to perform 'IRCAction's in the bot monad.
 module Network.Voco.Action
     ( pong
+    , user
+    , pass
+    , nickservIdentify
     , message
     , messageUser
     , notice
@@ -12,6 +16,8 @@ module Network.Voco.Action
     , nick
     ) where
 
+import Data.Text (Text)
+import Data.Monoid
 import Data.List.NonEmpty
 import Network.Voco.Bot
 import Network.Yak.Client
@@ -19,6 +25,15 @@ import Network.Yak.Types
 
 pong :: Monad m => Hostname -> Maybe Hostname -> Bot m i ()
 pong h1 h2 = perform $ SomeMsg (build h1 h2 :: Pong)
+
+user :: Monad m => Username -> Text -> Bot m i ()
+user u r = perform $ SomeMsg (build u 0 Unused (Message r) :: User)
+
+pass :: Monad m => Text -> Bot m i ()
+pass p = perform $ SomeMsg (build p :: Pass)
+
+nickservIdentify :: Monad m => Text -> Bot m i ()
+nickservIdentify p = messageUser "NickServ" (Message $ "IDENTIFY " <> p)
 
 message :: Monad m => Channel -> Message -> Bot m i ()
 message c m = perform $ SomeMsg (build [Left c] m :: Privmsg)
