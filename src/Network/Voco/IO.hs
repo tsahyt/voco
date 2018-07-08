@@ -83,7 +83,7 @@ connectIRC server =
 
 readIRC :: MonadIO m => Handle -> m ByteString
 readIRC h = do
-    x <- liftIO (B.hGetLine h)
+    x <- liftIO (B.init <$> B.hGetLine h)
     traceShowM ("in", x)
     pure x
 
