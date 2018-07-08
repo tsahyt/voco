@@ -1,20 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
+
 module Main where
 
+import Control.Category
 import Control.Lens ((^.))
 import Control.Monad
 import Data.ByteString (ByteString)
-import Control.Category
 import Network.Voco
-import Network.Yak.Types
 import Network.Yak.Client
-import Debug.Trace
+import Network.Yak.Types
 
 import Prelude hiding ((.), id)
 
 server :: IRCServer
-server = IRCServer
+server =
+    IRCServer
     { serverHost = "irc.snoonet.org"
     , serverPort = PortNumber 6667
     , serverPass = Nothing
@@ -34,6 +35,5 @@ bot =
 response :: Monad m => Bot m Privmsg ()
 response = do
     i <- query
-    traceShowM i
     guard (i ^. privmsgMessage == "!!foo")
     message (Channel "#zowlyfon") "foo"
