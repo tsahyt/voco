@@ -1,28 +1,39 @@
 module Network.Voco.Combinators
-    ( parsed
+    ( irc
+    , parsed
     , on
     , abort
     , refine
     , query
     , natural
     , divide
+    -- * Filtering
+    , filterB
+    , filterH
     -- * Re-exports for convenience
-    , module Control.Applicative
-    , module Data.Profunctor
+    , Alternative(..)
+    , asum
     ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
-import Control.Monad.Random.Class
 import Control.Monad (guard)
+import Control.Monad.Random.Class
+import Data.Attoparsec.Text (Parser, parseOnly)
 import Data.ByteString (ByteString)
+import Data.Foldable
 import Data.Profunctor
+import Data.Text (Text)
 import Network.Voco.Bot
 import Network.Yak
 
 -- | Transform a bot on some fetchable IRC message (or coproduct thereof) into a
 -- bot on 'ByteString', i.e. on raw IRC input.
-parsed :: (Applicative m, Fetch i) => Bot m i o -> Bot m ByteString o
-parsed = refine fetch
+irc :: (Applicative m, Fetch i) => Bot m i o -> Bot m ByteString o
+irc = refine fetch
+
+-- | Precompose a bot with an "attoparsec" parser.
+parsed :: Applicative m => Parser i -> Bot m i o -> Bot m Text o
+parsed p = refine (either (const Nothing) Just . parseOnly p)
 
 -- | Synonym for 'lmap'.
 on :: Functor m => (i' -> i) -> Bot m i o -> Bot m i' o

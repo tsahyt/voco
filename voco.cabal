@@ -33,7 +33,8 @@ library
                        network,
                        MonadRandom,
                        monad-logger,
-                       lens
+                       lens,
+                       attoparsec
   default-language:    Haskell2010
 
 executable voco-example

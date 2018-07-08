@@ -3,9 +3,11 @@ module Network.Voco.Common
     ( pingpong
     , delayedJoin
     , delayedJoinBatch
+    , standard
     ) where
 
 import Control.Lens
+import Data.ByteString (ByteString)
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as N
 import Network.Voco.Action
@@ -38,3 +40,7 @@ delayedJoinBatch :: Monad m => Int -> NonEmpty Channel -> Bot m RplWelcome ()
 delayedJoinBatch n cs =
     let chunked = chunksOf n . N.toList $ cs
      in mapM_ (join . N.fromList) chunked
+
+-- | A standard IRC bot handlings pings and initial joins.
+standard :: Monad m => NonEmpty Channel -> Bot m ByteString ()
+standard cs = irc pingpong <|> irc (delayedJoinBatch 8 cs)
