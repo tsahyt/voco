@@ -32,8 +32,6 @@ import System.IO
 
 import qualified Data.ByteString as B
 
-import Debug.Trace
-
 -- | Run a given list of IRC actions, using a specified send function.
 runActions :: (ByteString -> IO ()) -> [IRCAction] -> IO ()
 runActions send = mapM_ go
@@ -94,12 +92,10 @@ connectIRC server =
 readIRC :: MonadIO m => Handle -> m ByteString
 readIRC h = do
     x <- liftIO (B.init <$> B.hGetLine h)
-    traceShowM ("in", x)
     pure x
 
 writeIRC :: MonadIO m => Handle -> ByteString -> m ()
 writeIRC h x = do
-    traceShowM ("out", x)
     liftIO $ B.hPutStr h (x <> "\r\n")
 
 -- | Standard bot loop function to work with an IRC server specified as a
