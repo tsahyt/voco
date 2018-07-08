@@ -9,7 +9,9 @@ module Network.Voco.IO (
     runActions,
     botloop',
     -- * Testing
-    testloop
+    testloop,
+    -- * Natural Transformations
+    module Control.Natural
 ) where
 
 import Control.Concurrent
