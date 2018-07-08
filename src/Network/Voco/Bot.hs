@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeOperators #-}
 module Network.Voco.Bot (
     Bot,
     -- * Bot Monad
@@ -14,6 +15,7 @@ module Network.Voco.Bot (
     abort,
     refine,
     query,
+    natural,
     -- * IRC Actions
     IRCAction,
     perform
@@ -28,6 +30,7 @@ import Control.Monad.State
 import Control.Monad.Trans
 import Control.Monad.Trans.Maybe
 import Control.Monad.Writer
+import Control.Natural
 import Data.Bifunctor
 import Data.Monoid
 import Data.Profunctor
@@ -211,3 +214,7 @@ query = Bot $ \i -> pure (i, [])
 -- "Network.Voco.Action" are preferable.
 perform :: Monad m => IRCAction -> Bot m i ()
 perform a = Bot $ \_ -> pure ((), [a])
+
+-- | Apply a natural transformation to the underlying monad of a bot
+natural :: (m :~> n) -> Bot m i o -> Bot n i o
+natural nt b = Bot $ MaybeT . (nt $$) . runMaybeT . runBot' b 

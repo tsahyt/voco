@@ -4,6 +4,7 @@ module Network.Voco.Combinators
     , abort
     , refine
     , query
+    , natural
     -- * Re-exports for convenience
     , module Control.Applicative
     , module Data.Profunctor
