@@ -21,12 +21,13 @@ module Network.Voco.Bot (
 
 import Control.Applicative
 import Control.Category
-import Control.Monad.Writer
+import Control.Monad.Except
+import Control.Monad.Random.Class
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Trans.Maybe
 import Control.Monad.Trans
-import Control.Monad.Random.Class
+import Control.Monad.Trans.Maybe
+import Control.Monad.Writer
 import Data.Bifunctor
 import Data.Monoid
 import Data.Profunctor
@@ -125,6 +126,13 @@ instance MonadWriter w m => MonadWriter w (Bot m i) where
         Bot $ \i ->
             let k' = swapWriter $ runBot' k i
             in pass k'
+
+instance MonadError e m => MonadError e (Bot m i) where
+    throwError e = Bot $ \_ -> throwError e
+    catchError b k =
+        Bot $ \i ->
+            let b' = runBot' b i
+            in catchError b' (fmap (flip runBot' i) k)
 
 instance MonadRandom m => MonadRandom (Bot m i) where
     getRandomR = liftBot . getRandomR
