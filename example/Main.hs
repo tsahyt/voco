@@ -6,13 +6,13 @@
 module Main where
 
 import Control.Category
-import Control.Natural
-import Control.Lens (view, _Wrapped)
+import Control.Lens (_Wrapped, view)
 import Control.Monad
 import Control.Monad.State
-import Data.Text (Text)
-import Data.Monoid
+import Control.Natural
 import Data.ByteString (ByteString)
+import Data.Monoid
+import Data.Text (Text)
 import Network.Voco
 import Network.Yak.Client
 import Network.Yak.Types
@@ -41,14 +41,16 @@ main = botloop server (NT $ flip evalStateT 0) (standard [chan] <> irc bot)
 addParse :: A.Parser (Int, Int)
 addParse = (,) <$> (A.string "!!add" *> A.decimal <* A.skipSpace) <*> A.decimal
 
-bot :: MonadState Int m => Bot m Privmsg ()
-bot = view (privmsgMessage . _Wrapped) `on` asum @[]
-    [ filterB (== "!!foo") $ message chan "foo"
-    , parsed addParse $ do
-        (a,b) <- query
-        message chan $ Message . T.pack . show $ a + b
-    , filterB (== "!!count") $ do
-        i <- get
-        modify succ
-        message chan $ Message . T.pack . show $ i
-    ]
+bot :: (MonadIO m, MonadState Int m) => Bot m Privmsg ()
+bot =
+    view (privmsgMessage . _Wrapped) `on`
+    asum @[]
+        [ filterB (== "!!foo") $ message chan "foo"
+        , parsed addParse $ do
+              (a, b) <- query
+              message chan $ Message . T.pack . show $ a + b
+        , filterB (== "!!count") $ do
+              i <- get
+              modify succ
+              message chan $ Message . T.pack . show $ i
+        ]
