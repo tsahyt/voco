@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 module Network.Voco.IO (
     botloop,
     IRCServer(..),
@@ -16,9 +17,11 @@ import Control.Monad.IO.Class
 import Control.Natural
 import Data.ByteString (ByteString)
 import Data.Monoid
+import Data.Text (Text)
 import Network
 import Network.Voco.Bot
-import Network.Yak (emitSome)
+import Network.Yak
+import Network.Yak.Client
 import System.IO
 
 import qualified Data.ByteString as B
@@ -55,16 +58,28 @@ botloop' input send nt bot = do
     nt $$ loop
 
 connectIRC :: MonadIO m => IRCServer -> m Handle
-connectIRC server = liftIO $ do
-    h <- connectTo (serverHost server) (serverPort server)
-    hSetBuffering h NoBuffering
-    return h
+connectIRC server =
+    liftIO $ do
+        h <- connectTo (serverHost server) (serverPort server)
+        hSetBuffering h NoBuffering
+    -- bootstrapping procedure
+        runActions
+            (writeIRC h)
+            [ SomeMsg
+                  (build
+                       (botUser server)
+                       0
+                       Unused
+                       (Message $ botRealname server) :: User)
+            , SomeMsg (build (botNickname server) :: Nick)
+            ]
+        return h
 
 readIRC :: MonadIO m => Handle -> m ByteString
 readIRC h = liftIO (B.hGetLine h)
 
 writeIRC :: MonadIO m => Handle -> ByteString -> m ()
-writeIRC h x = liftIO $ B.hPutStr h (x <> "\n")
+writeIRC h x = liftIO $ B.hPutStr h (x <> "\r\n")
 
 -- | Standard bot loop function to work with an IRC server specified as a
 -- 'IRCServer' value, a natural transformation, and a bot.
@@ -77,7 +92,12 @@ botloop server nt bot = do
 testloop :: MonadIO m => (m :~> IO) -> Bot m ByteString () -> IO ()
 testloop nt bot = botloop' (readIRC stdin) (writeIRC stdout) nt bot
 
+-- | Data required to connect to an IRC server
 data IRCServer = IRCServer
     { serverHost :: HostName
     , serverPort :: PortID
+    , serverPass :: Maybe Text
+    , botUser :: Username
+    , botRealname :: Text
+    , botNickname :: Text
     } deriving (Eq, Show)
