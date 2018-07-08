@@ -10,9 +10,12 @@ module Network.Voco.Combinators
     -- * Filtering
     , filterB
     , filterH
+    , filterM
     -- * Re-exports for convenience
     , Alternative(..)
     , asum
+    , guard
+    , Profunctor(..)
     ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
@@ -64,3 +67,11 @@ filterH p b = do
     case msgPrefix i of
         Just (PrefixUser h) -> guard (p h) *> b
         _ -> empty
+
+-- | Like 'filterB' but taking a monadic predicate.
+filterM :: Monad m => (i -> m Bool) -> Bot m i o -> Bot m i o
+filterM p b = do
+    i <- query
+    x <- liftBot $ p i
+    guard x
+    b

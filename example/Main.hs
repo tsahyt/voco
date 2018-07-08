@@ -39,7 +39,9 @@ main :: IO ()
 main = botloop server (NT $ flip evalStateT 0) (standard [chan] <> irc bot)
 
 addParse :: A.Parser (Int, Int)
-addParse = (,) <$> (A.string "!!add" *> A.decimal <* A.skipSpace) <*> A.decimal
+addParse =
+    (,) <$> (A.string "!!add" *> A.skipSpace *> A.decimal <* A.skipSpace) <*>
+    A.decimal
 
 bot :: (MonadIO m, MonadState Int m) => Bot m Privmsg ()
 bot =
