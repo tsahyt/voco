@@ -140,6 +140,9 @@ instance MonadRandom m => MonadRandom (Bot m i) where
     getRandomRs = liftBot . getRandomRs
     getRandoms = liftBot getRandoms
 
+instance MonadIO m => MonadIO (Bot m i) where
+    liftIO = liftBot . liftIO
+
 instance Functor m => Profunctor (Bot m) where
     lmap f (Bot k) = Bot (lmap f k)
     rmap f (Bot k) = Bot (rmap (fmap (first f)) k)
