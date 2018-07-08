@@ -17,6 +17,7 @@ import Control.Monad.IO.Class
 import Control.Natural
 import Data.ByteString (ByteString)
 import Data.Monoid
+import Data.Maybe (maybeToList)
 import Data.Text (Text)
 import Network
 import Network.Voco.Bot
@@ -63,8 +64,10 @@ connectIRC server =
         h <- connectTo (serverHost server) (serverPort server)
         hSetBuffering h NoBuffering
     -- bootstrapping procedure
-        runActions
-            (writeIRC h)
+        runActions (writeIRC h) $
+            -- send password if given
+            [SomeMsg (build p :: Pass) | p <- maybeToList (serverPass server)] ++
+            -- send user and nick
             [ SomeMsg
                   (build
                        (botUser server)
