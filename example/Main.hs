@@ -63,7 +63,7 @@ bot =
               message chan $ Message . T.pack . show $ i
         , filterB (== "!!wait") $ do
               message chan "waiting for a while"
-              async $ do
+              void . async $ do
                   liftIO (threadDelay 10000000)
                   message chan "done waiting"
         ]

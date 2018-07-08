@@ -251,12 +251,15 @@ natural nt b = Bot $ MaybeT . (nt $$) . runMaybeT . runBot' b
 -- in a closure. However, it is not possible to carry on the existing stack on
 -- the outside into the asynchronous computation, which could lead to seriously
 -- strange behaviour. You are therefore asked to make your intentions explicit.
-async :: MonadIO m => Bot IO i () -> Bot m i ()
+--
+-- The resulting bot returns an 'Async', which can be stored away and waited on,
+-- or killed. Consult "Control.Concurrent.Async" for details.
+async :: MonadIO m => Bot IO i () -> Bot m i (Async ())
 async b =
     Bot $ \i ->
         liftIO $ do
             future <- A.async $ concat . maybeToList <$> execBot b i
-            pure ((), [FutureAction future])
+            pure (() <$ future, [FutureAction future])
 
 -- | Divide and conquer for bots, analogous to the
 -- "Data.Functor.Contravariant.Divisible" module. Due to argument ordering it is
