@@ -46,7 +46,7 @@ bot = view (privmsgMessage . _Wrapped) `on` asum @[]
     [ filterB (== "!!foo") $ message chan "foo"
     , parsed addParse $ do
         (a,b) <- query
-        message chan (Message . T.pack . show $ a + b)
+        message chan $ Message . T.pack . show $ a + b
     , filterB (== "!!count") $ do
         i <- get
         modify succ
