@@ -253,13 +253,22 @@ natural nt b = Bot $ MaybeT . (nt $$) . runMaybeT . runBot' b
 -- strange behaviour. You are therefore asked to make your intentions explicit.
 --
 -- The resulting bot returns an 'Async', which can be stored away and waited on,
--- or killed. Consult "Control.Concurrent.Async" for details.
-async :: MonadIO m => Bot IO i () -> Bot m i (Async ())
+-- or killed. Consult "Control.Concurrent.Async" for details. If this is not
+-- needed, be sure to not let the value linger around in scope, such that the
+-- thread can be garbage collected after execution.
+--
+-- All 'IRCAction's performed in the sub-bot will be executed /at the end of its
+-- execution/!
+--
+-- Note that 'async' can be nested.
+async :: MonadIO m => Bot IO i a -> Bot m i (Async (Maybe a))
 async b =
     Bot $ \i ->
         liftIO $ do
-            future <- A.async $ concat . maybeToList <$> execBot b i
-            pure (() <$ future, [FutureAction future])
+            future <- A.async $ runBot b i
+            let acts = concat . maybeToList . fmap snd <$> future
+                res  = fmap fst <$> future
+            pure (res, [FutureAction acts])
 
 -- | Divide and conquer for bots, analogous to the
 -- "Data.Functor.Contravariant.Divisible" module. Due to argument ordering it is
