@@ -20,6 +20,7 @@ library
                        Network.Voco.Action
                        Network.Voco.Bot
                        Network.Voco.Combinators
+                       Network.Voco.Common
                        Network.Voco.IO
   build-depends:       base >= 4.7 && < 5,
                        yak,
@@ -31,7 +32,8 @@ library
                        natural-transformation,
                        network,
                        MonadRandom,
-                       monad-logger
+                       monad-logger,
+                       lens
   default-language:    Haskell2010
 
 source-repository head

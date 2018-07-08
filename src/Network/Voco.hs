@@ -3,10 +3,13 @@ module Network.Voco
     , module Network.Voco.Action
     , module Network.Voco.Bot
     , module Network.Voco.Combinators
+    , module Network.Voco.Common
+    , module Network.Voco.IO
     ) where
 
 import Data.Coproduct
 import Network.Voco.Action
 import Network.Voco.Bot
 import Network.Voco.Combinators
+import Network.Voco.Common
 import Network.Voco.IO
