@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeApplications #-}
 module Network.Voco.IO (
     botloop,
+    PortID (..),
     IRCServer(..),
     -- * Low-Level
     runActions,
@@ -26,6 +27,8 @@ import Network.Yak.Client
 import System.IO
 
 import qualified Data.ByteString as B
+
+import Debug.Trace
 
 -- | Run a given list of IRC actions, using a specified send function.
 runActions :: (ByteString -> IO ()) -> [IRCAction] -> IO ()
@@ -79,10 +82,15 @@ connectIRC server =
         return h
 
 readIRC :: MonadIO m => Handle -> m ByteString
-readIRC h = liftIO (B.hGetLine h)
+readIRC h = do
+    x <- liftIO (B.hGetLine h)
+    traceShowM ("in", x)
+    pure x
 
 writeIRC :: MonadIO m => Handle -> ByteString -> m ()
-writeIRC h x = liftIO $ B.hPutStr h (x <> "\r\n")
+writeIRC h x = do
+    traceShowM ("out", x)
+    liftIO $ B.hPutStr h (x <> "\r\n")
 
 -- | Standard bot loop function to work with an IRC server specified as a
 -- 'IRCServer' value, a natural transformation, and a bot.
