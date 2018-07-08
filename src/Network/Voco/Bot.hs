@@ -26,6 +26,7 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans
+import Control.Monad.Random.Class
 import Data.Bifunctor
 import Data.Monoid
 import Data.Profunctor
@@ -124,6 +125,12 @@ instance MonadWriter w m => MonadWriter w (Bot m i) where
         Bot $ \i ->
             let k' = swapWriter $ runBot' k i
             in pass k'
+
+instance MonadRandom m => MonadRandom (Bot m i) where
+    getRandomR = liftBot . getRandomR
+    getRandom = liftBot getRandom
+    getRandomRs = liftBot . getRandomRs
+    getRandoms = liftBot getRandoms
 
 instance Functor m => Profunctor (Bot m) where
     lmap f (Bot k) = Bot (lmap f k)
