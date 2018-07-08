@@ -249,7 +249,12 @@ perform a = Bot $ \_ -> pure ((), [a])
 natural :: (m :~> n) -> Bot m i o -> Bot n i o
 natural nt b = Bot $ MaybeT . (nt $$) . runMaybeT . runBot' b 
 
--- | Run the sub-bot asynchronously
+-- | Run the sub-bot asynchronously. Note that the sub-bot is run with 'IO' as
+-- its underlying monad. You can use e.g. 'natural' to rebuild some custom
+-- stack, and you can of course introduce data from the surrounding environment
+-- in a closure. However, it is not possible to carry on the existing stack on
+-- the outside into the asynchronous computation, which could lead to seriously
+-- strange behaviour. You are therefore asked to make your intentions explicit.
 async :: MonadIO m => Bot IO i () -> Bot m i ()
 async b =
     Bot $ \i ->
