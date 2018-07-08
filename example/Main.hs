@@ -7,6 +7,7 @@ module Main where
 
 import Control.Category
 import Control.Lens (_Wrapped, view)
+import Control.Concurrent
 import Control.Monad
 import Control.Monad.State
 import Control.Natural
@@ -55,4 +56,9 @@ bot =
               i <- get
               modify succ
               message chan $ Message . T.pack . show $ i
+        , filterB (== "!!wait") $ do
+              message chan "waiting for a while"
+              async $ do
+                  liftIO (threadDelay 10000000)
+                  message chan "done waiting"
         ]

@@ -7,6 +7,7 @@ module Network.Voco.Combinators
     , query
     , natural
     , divide
+    , async
     -- * Filtering
     , filterB
     , filterH

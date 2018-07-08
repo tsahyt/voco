@@ -34,7 +34,8 @@ library
                        MonadRandom,
                        monad-logger,
                        lens,
-                       attoparsec
+                       attoparsec,
+                       async
   default-language:    Haskell2010
 
 executable voco-example

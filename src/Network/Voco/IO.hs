@@ -15,8 +15,10 @@ module Network.Voco.IO (
 ) where
 
 import Control.Concurrent
+import Control.Concurrent.Async
 import Control.Concurrent.Chan
 import Control.Monad.IO.Class
+import Control.Monad (void)
 import Control.Natural
 import Data.ByteString (ByteString)
 import Data.Monoid
@@ -34,7 +36,11 @@ import Debug.Trace
 
 -- | Run a given list of IRC actions, using a specified send function.
 runActions :: (ByteString -> IO ()) -> [IRCAction] -> IO ()
-runActions send = mapM_ (send . emitSome)
+runActions send = mapM_ go
+    where go (IRCAction m) = send . emitSome $ m
+          go (FutureAction a) = void . forkIO $ do
+             xs <- wait a
+             mapM_ go xs
 
 -- | Generalized bot loop function, taking a way to read a line from the
 -- network, a way to send a line to the network, a natural transformation from
@@ -57,7 +63,8 @@ botloop' input send nt bot = do
             ans <- execBot bot i
             case ans of
                 Nothing -> loop
-                Just ks -> liftIO (runActions (writeChan out) ks) *> loop
+                Just ks ->
+                    liftIO (runActions (writeChan out) ks) *> loop
     forkIO $ printer
     nt $$ loop
 
@@ -69,15 +76,18 @@ connectIRC server =
     -- bootstrapping procedure
         runActions (writeIRC h) $
             -- send password if given
-            [SomeMsg (build p :: Pass) | p <- maybeToList (serverPass server)] ++
+            [ IRCAction $ SomeMsg (build p :: Pass)
+            | p <- maybeToList (serverPass server)
+            ] ++
             -- send user and nick
-            [ SomeMsg
+            [ IRCAction $
+              SomeMsg
                   (build
                        (botUser server)
                        0
                        Unused
                        (Message $ botRealname server) :: User)
-            , SomeMsg (build (botNickname server) :: Nick)
+            , IRCAction $ SomeMsg (build (botNickname server) :: Nick)
             ]
         return h
 

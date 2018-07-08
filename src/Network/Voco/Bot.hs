@@ -18,13 +18,15 @@ module Network.Voco.Bot (
     query,
     natural,
     divide,
+    async,
     -- * IRC Actions
-    IRCAction,
+    IRCAction (..),
     perform
 ) where
 
 import Control.Applicative
 import Control.Category
+import Control.Concurrent.Async (Async)
 import Control.Monad.Except
 import Control.Monad.Logger
 import Control.Monad.Random.Class
@@ -35,15 +37,17 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Writer
 import Control.Natural
 import Data.Bifunctor
+import Data.Maybe (maybeToList)
 import Data.Monoid
 import Data.Profunctor
 import Data.Text (Text)
 import Network.Yak (SomeMsg)
 
+import qualified Control.Concurrent.Async as A
 import Prelude hiding ((.), id)
 
 -- | An IRC action is simply some message that shall be sent back to the server.
-type IRCAction = SomeMsg
+data IRCAction = IRCAction SomeMsg | FutureAction (Async [IRCAction])
 
 -- | The bot abstraction provides a composable way to define IRC bots. A bot is
 -- parameterized over three types. 
@@ -225,6 +229,14 @@ perform a = Bot $ \_ -> pure ((), [a])
 -- | Apply a natural transformation to the underlying monad of a bot
 natural :: (m :~> n) -> Bot m i o -> Bot n i o
 natural nt b = Bot $ MaybeT . (nt $$) . runMaybeT . runBot' b 
+
+-- | Run the sub-bot asynchronously
+async :: MonadIO m => Bot IO i () -> Bot m i ()
+async b =
+    Bot $ \i ->
+        liftIO $ do
+            future <- A.async $ concat . maybeToList <$> execBot b i
+            pure ((), [FutureAction future])
 
 -- | Divide and conquer for bots, analogous to the
 -- "Data.Functor.Contravariant.Divisible" module. Due to argument ordering it is

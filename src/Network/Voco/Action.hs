@@ -26,46 +26,46 @@ import Network.Yak.Client
 import Network.Yak.Types
 
 pong :: Monad m => Hostname -> Maybe Hostname -> Bot m i ()
-pong h1 h2 = perform $ SomeMsg (build h1 h2 :: Pong)
+pong h1 h2 = perform . IRCAction $ SomeMsg (build h1 h2 :: Pong)
 
 user :: Monad m => Username -> Text -> Bot m i ()
-user u r = perform $ SomeMsg (build u 0 Unused (Message r) :: User)
+user u r = perform . IRCAction $ SomeMsg (build u 0 Unused (Message r) :: User)
 
 pass :: Monad m => Text -> Bot m i ()
-pass p = perform $ SomeMsg (build p :: Pass)
+pass p = perform . IRCAction $ SomeMsg (build p :: Pass)
 
 nickservIdentify :: Monad m => Text -> Bot m i ()
 nickservIdentify p = messageUser "NickServ" (Message $ "IDENTIFY " <> p)
 
 message :: Monad m => Channel -> Message -> Bot m i ()
-message c m = perform $ SomeMsg (build [Left c] m :: Privmsg)
+message c m = perform . IRCAction $ SomeMsg (build [Left c] m :: Privmsg)
 
 messageUser :: Monad m => Nickname -> Message -> Bot m i ()
-messageUser n m = perform $ SomeMsg (build [Right n] m :: Privmsg)
+messageUser n m = perform . IRCAction $ SomeMsg (build [Right n] m :: Privmsg)
 
 notice :: Monad m => Channel -> Message -> Bot m i ()
-notice c m = perform $ SomeMsg (build [Left c] m :: Notice)
+notice c m = perform . IRCAction $ SomeMsg (build [Left c] m :: Notice)
 
 noticeUser :: Monad m => Nickname -> Message -> Bot m i ()
-noticeUser n m = perform $ SomeMsg (build [Right n] m :: Notice)
+noticeUser n m = perform . IRCAction $ SomeMsg (build [Right n] m :: Notice)
 
 join :: Monad m => NonEmpty Channel -> Bot m i ()
-join cs = perform $ SomeMsg (build cs [] :: Join)
+join cs = perform . IRCAction $ SomeMsg (build cs [] :: Join)
 
 join' :: Monad m => Channel -> Bot m i ()
 join' x = join [x]
 
 part :: Monad m => NonEmpty Channel -> Maybe Message -> Bot m i ()
-part cs m = perform $ SomeMsg (build cs m :: Part)
+part cs m = perform . IRCAction $ SomeMsg (build cs m :: Part)
 
 part' :: Monad m => Channel -> Maybe Message -> Bot m i ()
 part' x = part [x]
 
 nick :: Monad m => Nickname -> Bot m i ()
-nick n = perform $ SomeMsg (build n :: Nick)
+nick n = perform . IRCAction $ SomeMsg (build n :: Nick)
 
 kick :: Monad m => Channel -> Nickname -> Maybe Message -> Bot m i ()
-kick c n m = perform $ SomeMsg (build [c] [n] m :: Kick)
+kick c n m = perform . IRCAction $ SomeMsg (build [c] [n] m :: Kick)
 
 invite :: Monad m => Nickname -> Channel -> Bot m i ()
-invite n c = perform $ SomeMsg (build n c :: Invite)
+invite n c = perform . IRCAction $ SomeMsg (build n c :: Invite)
