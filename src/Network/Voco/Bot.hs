@@ -47,6 +47,9 @@ import qualified Control.Concurrent.Async as A
 import Prelude hiding ((.), id)
 
 -- | An IRC action is simply some message that shall be sent back to the server.
+-- You generally do not need nor want to construct these values directly. See
+-- "Network.Voco.Action" for normal IRC actions, and the 'async' combinator for
+-- future actions.
 data IRCAction = IRCAction SomeMsg | FutureAction (Async [IRCAction])
 
 -- | The bot abstraction provides a composable way to define IRC bots. A bot is
