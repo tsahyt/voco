@@ -47,6 +47,10 @@ delayedJoinBatch n cs =
     let chunked = chunksOf n . N.toList $ cs
      in mapM_ (join . N.fromList) chunked
 
+-- | A bot logging all raw IRC data. Note that this does /only/ log incoming
+-- data, since a bot cannot listen to other bots (in the context of a composed
+-- bot). The log messages will be written at a custom log level, prefixed with
+-- @RAW@.
 logRaw :: MonadLogger m => Bot m ByteString ()
 logRaw = do
     i <- query
