@@ -39,8 +39,6 @@ runActions send = mapM_ (send . emitSome)
 -- | Generalized bot loop function, taking a way to read a line from the
 -- network, a way to send a line to the network, a natural transformation from
 -- the underlying monad of 'Bot' to 'IO', as well as a 'Bot' of a suitable type.
---
--- This loop treats each input asynchronously.
 botloop' ::
        MonadIO m
     => IO ByteString
