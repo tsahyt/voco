@@ -26,6 +26,7 @@ module Network.Voco.Bot (
 import Control.Applicative
 import Control.Category
 import Control.Monad.Except
+import Control.Monad.Logger
 import Control.Monad.Random.Class
 import Control.Monad.Reader
 import Control.Monad.State
@@ -147,6 +148,10 @@ instance MonadRandom m => MonadRandom (Bot m i) where
 
 instance MonadIO m => MonadIO (Bot m i) where
     liftIO = liftBot . liftIO
+
+instance MonadLogger m => MonadLogger (Bot m i) where
+    monadLoggerLog loc source level m =
+        Bot $ \_ -> (, []) <$> monadLoggerLog loc source level m
 
 instance Functor m => Profunctor (Bot m) where
     lmap f (Bot k) = Bot (lmap f k)
