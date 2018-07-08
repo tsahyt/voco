@@ -29,13 +29,13 @@ server =
     { serverHost = "irc.snoonet.org"
     , serverPort = PortNumber 6667
     , serverPass = Nothing
-    , botUser = "botnetscousin"
+    , botUser = "voco-example"
     , botRealname = "bot"
-    , botNickname = "botnetscousin"
+    , botNickname = "voco-example"
     }
 
 chan :: Channel
-chan = Channel "#zowlyfon"
+chan = Channel "#voco-example"
 
 main :: IO ()
 main =
