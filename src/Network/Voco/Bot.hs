@@ -12,6 +12,7 @@ module Network.Voco.Bot (
     execBot,
     evalBot,
     liftBot,
+    -- ** Basic Combinators
     abort,
     refine,
     query,
