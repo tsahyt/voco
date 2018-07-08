@@ -1,21 +1,27 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- | Module defining common or even ubiquitous bots.
 module Network.Voco.Common
     ( pingpong
     , delayedJoin
     , delayedJoinBatch
     , standard
+    , logRaw
     ) where
 
 import Control.Lens
+import Control.Monad.Logger
 import Data.ByteString (ByteString)
 import Data.List.NonEmpty (NonEmpty)
-import qualified Data.List.NonEmpty as N
 import Network.Voco.Action
 import Network.Voco.Bot
 import Network.Voco.Combinators
 import Network.Yak
 import Network.Yak.Client
 import Network.Yak.Responses
+
+import qualified Data.List.NonEmpty as N
+import qualified Data.Text.Encoding as T
 
 -- | A bot responding to ping.
 pingpong :: Monad m => Bot m Ping ()
@@ -40,6 +46,11 @@ delayedJoinBatch :: Monad m => Int -> NonEmpty Channel -> Bot m RplWelcome ()
 delayedJoinBatch n cs =
     let chunked = chunksOf n . N.toList $ cs
      in mapM_ (join . N.fromList) chunked
+
+logRaw :: MonadLogger m => Bot m ByteString ()
+logRaw = do
+    i <- query
+    logOtherN (LevelOther "RAW") (T.decodeUtf8 i)
 
 -- | A standard IRC bot handlings pings and initial joins.
 standard :: Monad m => NonEmpty Channel -> Bot m ByteString ()

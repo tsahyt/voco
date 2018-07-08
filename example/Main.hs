@@ -9,6 +9,7 @@ import Control.Category
 import Control.Lens (_Wrapped, view)
 import Control.Concurrent
 import Control.Monad
+import Control.Monad.Logger
 import Control.Monad.State
 import Control.Natural
 import Data.ByteString (ByteString)
@@ -37,7 +38,11 @@ chan :: Channel
 chan = Channel "#zowlyfon"
 
 main :: IO ()
-main = botloop server (NT $ flip evalStateT 0) (standard [chan] <> irc bot)
+main =
+    botloop
+        server
+        (NT $ \m -> runStderrLoggingT (evalStateT m 0))
+        (standard [chan] <> logRaw <> irc bot)
 
 addParse :: A.Parser (Int, Int)
 addParse =

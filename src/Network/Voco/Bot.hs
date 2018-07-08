@@ -197,7 +197,17 @@ instance Monad m => Alternative (Bot m i) where
 
 instance (Monad m, Monoid o) => Monoid (Bot m i o) where
     mempty = empty
-    mappend a b = getAlt $ Alt a <> Alt b
+    mappend a b =
+        Bot $ \i ->
+            MaybeT $ do
+                ares <- runBot a i
+                case ares of
+                    Nothing -> runBot b i
+                    Just ares' -> do
+                        bres <- runBot b i
+                        case bres of
+                            Nothing -> pure ares
+                            Just bres' -> pure . Just $ ares' <> bres'
 
 -- | Helper function for 'MonadWriter' implementation
 swapWriter :: Functor f => f ((a, x), w) -> f ((a, w), x)
