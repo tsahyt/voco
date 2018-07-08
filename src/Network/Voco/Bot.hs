@@ -16,6 +16,7 @@ module Network.Voco.Bot (
     refine,
     query,
     natural,
+    divide,
     -- * IRC Actions
     IRCAction,
     perform
@@ -218,3 +219,21 @@ perform a = Bot $ \_ -> pure ((), [a])
 -- | Apply a natural transformation to the underlying monad of a bot
 natural :: (m :~> n) -> Bot m i o -> Bot n i o
 natural nt b = Bot $ MaybeT . (nt $$) . runMaybeT . runBot' b 
+
+-- | Divide and conquer for bots, analogous to the
+-- "Data.Functor.Contravariant.Divisible" module. Due to argument ordering it is
+-- not possible to implement the class. 'conquer' is given as some application
+-- of 'pure'. We need to assume some way to combine outputs, hence the 'Monoid'
+-- constraint.
+divide ::
+       (Monad m, Monoid o)
+    => (i -> (j, k))
+    -> Bot m j o
+    -> Bot m k o
+    -> Bot m i o
+divide f l r =
+    Bot $ \i -> do
+        let (j, k) = f i
+        (l', as) <- runBot' l j
+        (r', bs) <- runBot' r k
+        pure (l' <> r', as <> bs)

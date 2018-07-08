@@ -5,6 +5,7 @@ module Network.Voco.Combinators
     , refine
     , query
     , natural
+    , divide
     -- * Re-exports for convenience
     , module Control.Applicative
     , module Data.Profunctor
