@@ -1,12 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Main where
 
 import Control.Category
-import Control.Lens (view)
+import Control.Natural
+import Control.Lens (view, _Wrapped)
 import Control.Monad
+import Control.Monad.State
 import Data.Text (Text)
 import Data.Monoid
 import Data.ByteString (ByteString)
@@ -14,6 +17,8 @@ import Network.Voco
 import Network.Yak.Client
 import Network.Yak.Types
 
+import qualified Data.Attoparsec.Text as A
+import qualified Data.Text as T
 import Prelude hiding ((.), id)
 
 server :: IRCServer
@@ -31,11 +36,19 @@ chan :: Channel
 chan = Channel "#zowlyfon"
 
 main :: IO ()
-main = botloop server id (standard [chan] <> irc bot)
+main = botloop server (NT $ flip evalStateT 0) (standard [chan] <> irc bot)
 
-bot :: Monad m => Bot m Privmsg ()
-bot = view privmsgMessage `on` asum @[]
+addParse :: A.Parser (Int, Int)
+addParse = (,) <$> (A.string "!!add" *> A.decimal <* A.skipSpace) <*> A.decimal
+
+bot :: MonadState Int m => Bot m Privmsg ()
+bot = view (privmsgMessage . _Wrapped) `on` asum @[]
     [ filterB (== "!!foo") $ message chan "foo"
-    , filterB (== "!!bar") $ message chan "bar!"
-    , filterB (== "!!quux") $ message chan "quux!!"
+    , parsed addParse $ do
+        (a,b) <- query
+        message chan (Message . T.pack . show $ a + b)
+    , filterB (== "!!count") $ do
+        i <- get
+        modify succ
+        message chan $ Message . T.pack . show $ i
     ]
