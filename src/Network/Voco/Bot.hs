@@ -5,6 +5,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
 module Network.Voco.Bot (
     Bot,
     -- * Bot Monad
@@ -27,6 +28,7 @@ module Network.Voco.Bot (
 import Control.Applicative
 import Control.Category
 import Control.Concurrent.Async (Async)
+import Control.Lens.Zoom
 import Control.Monad.Except
 import Control.Monad.Logger
 import Control.Monad.Random.Class
@@ -213,6 +215,17 @@ instance (Monad m, Monoid o) => Monoid (Bot m i o) where
                         case bres of
                             Nothing -> pure ares
                             Just bres' -> pure . Just $ ares' <> bres'
+
+type instance Zoomed (Bot m i) =
+     Zoomed (ReaderT i (WriterT [IRCAction] (MaybeT m)))
+
+instance Zoom m n s t => Zoom (Bot m i) (Bot n i) s t where
+    -- Implemented via roundtrip to monad transformers. In reality this costs
+    -- only the fmap, since everything else is newtypes.
+    zoom l x = stackToBot $$ zoom l (botToStack $$ x)
+      where
+        stackToBot = NT (Bot . (runWriterT .) . runReaderT)
+        botToStack = NT (ReaderT . (WriterT <$>) . runBot')
 
 -- | Helper function for 'MonadWriter' implementation
 swapWriter :: Functor f => f ((a, x), w) -> f ((a, w), x)
