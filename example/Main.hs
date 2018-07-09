@@ -6,7 +6,7 @@
 module Main where
 
 import Control.Category
-import Control.Lens (_Wrapped, view)
+import Control.Lens
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.Logger
@@ -41,29 +41,37 @@ main :: IO ()
 main =
     botloop
         server
-        (NT $ \m -> runStderrLoggingT (evalStateT m 0))
-        (standard [chan] <> logRaw <> irc bot)
+        (NT $ \m -> evalStateT m (0,0))
+        (standard [chan] <> irc bot)
 
 addParse :: A.Parser (Int, Int)
 addParse =
     (,) <$> (A.string "!!add" *> A.skipSpace *> A.decimal <* A.skipSpace) <*>
     A.decimal
 
-bot :: (MonadIO m, MonadState Int m) => Bot m Privmsg ()
+bot :: Bot (StateT (Int, Int) IO) Privmsg ()
 bot =
     view (privmsgMessage . _Wrapped) `on`
-    asum @[]
-        [ filterB (== "!!foo") $ message chan "foo"
-        , parsed addParse $ do
-              (a, b) <- query
-              message chan $ Message . T.pack . show $ a + b
-        , filterB (== "!!count") $ do
-              i <- get
-              modify succ
-              message chan $ Message . T.pack . show $ i
-        , filterB (== "!!wait") $ do
-              message chan "waiting for a while"
-              void . async $ do
-                  liftIO (threadDelay 10000000)
-                  message chan "done waiting"
-        ]
+    (echo <|> add <|> zoom _1 count <|> zoom _2 countdown <|> wait)
+  where
+    echo = filterB (== "!!foo") $ message chan "foo"
+    add =
+        parsed addParse $ do
+            (a, b) <- query
+            message chan $ Message . T.pack . show $ a + b
+    count =
+        filterB (== "!!count") $ do
+            i <- get
+            modify succ
+            message chan $ Message . T.pack . show $ i
+    countdown =
+        filterB (== "!!countdown") $ do
+            i <- get
+            modify pred
+            message chan $ Message . T.pack . show $ i
+    wait =
+        filterB (== "!!wait") $ do
+            message chan "waiting for a while"
+            void . async $ do
+                liftIO (threadDelay 10000000)
+                message chan "done waiting"
