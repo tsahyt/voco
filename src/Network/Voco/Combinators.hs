@@ -90,5 +90,6 @@ byNick p = filterB (all p . toListOf nick)
 -- | Filter input on 'Channel's, convience function using 'filterB'. Messages
 -- containing multiple channels will need to match the predicate for /all/
 -- channels!
-onChannel :: (HasChannel i, Monad m) => (Channel -> Bool) -> Bot m i o -> Bot m i o
+onChannel ::
+       (HasChannel i, Monad m) => (Channel -> Bool) -> Bot m i o -> Bot m i o
 onChannel p = filterB (all p . toListOf channel)
