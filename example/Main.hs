@@ -38,6 +38,9 @@ server =
 chan :: Channel
 chan = Channel "#voco-example"
 
+allowedNick :: Nickname
+allowedNick = "tsahyt"
+
 main :: IO ()
 main =
     botloop
@@ -52,6 +55,7 @@ addParse =
 
 bot :: Bot (StateT (Int, Int) IO) Privmsg ()
 bot =
+    filterH ((== allowedNick) . view hostNick) $ 
     view (privmsgMessage . _Wrapped) `on`
     (echo <|> add <|> zoom _1 count <|> zoom _2 countdown <|> wait)
   where

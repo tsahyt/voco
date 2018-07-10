@@ -1,3 +1,4 @@
+{-# LANGUAGE PolyKinds #-}
 module Network.Voco.Combinators
     ( irc
     , parsed
@@ -12,7 +13,6 @@ module Network.Voco.Combinators
     , filterB
     , filterH
     , filterM
-    , byNick
     , onChannel
     -- * Re-exports for convenience
     , Alternative(..)
@@ -80,12 +80,6 @@ filterM p b = do
     x <- liftBot $ p i
     guard x
     b
-
--- | Filter input by nicknames, convience function using 'filterB'. Messages
--- containing multiple nicknames will need to match the predicate for /all/
--- nicks!
-byNick :: (HasNick i, Monad m) => (Nickname -> Bool) -> Bot m i o -> Bot m i o
-byNick p = filterB (all p . toListOf nick)
 
 -- | Filter input on 'Channel's, convience function using 'filterB'. Messages
 -- containing multiple channels will need to match the predicate for /all/
