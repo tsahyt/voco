@@ -22,7 +22,7 @@ import Data.Text (Text)
 import Data.Monoid
 import Data.List.NonEmpty
 import Network.Voco.Bot
-import Network.Yak.Client
+import Network.Yak.Client hiding (nick)
 import Network.Yak.Types
 
 pong :: Monad m => Hostname -> Maybe Hostname -> Bot m i ()

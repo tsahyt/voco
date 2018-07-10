@@ -12,6 +12,8 @@ module Network.Voco.Combinators
     , filterB
     , filterH
     , filterM
+    , byNick
+    , onChannel
     -- * Re-exports for convenience
     , Alternative(..)
     , asum
@@ -20,6 +22,7 @@ module Network.Voco.Combinators
     ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
+import Control.Lens (toListOf)
 import Control.Monad (guard)
 import Control.Monad.Random.Class
 import Data.Attoparsec.Text (Parser, parseOnly)
@@ -29,6 +32,7 @@ import Data.Profunctor
 import Data.Text (Text)
 import Network.Voco.Bot
 import Network.Yak
+import Network.Yak.Client (HasNick(..), HasChannel(..))
 
 -- | Transform a bot on some fetchable IRC message (or coproduct thereof) into a
 -- bot on 'ByteString', i.e. on raw IRC input.
@@ -76,3 +80,15 @@ filterM p b = do
     x <- liftBot $ p i
     guard x
     b
+
+-- | Filter input by nicknames, convience function using 'filterB'. Messages
+-- containing multiple nicknames will need to match the predicate for /all/
+-- nicks!
+byNick :: (HasNick i, Monad m) => (Nickname -> Bool) -> Bot m i o -> Bot m i o
+byNick p = filterB (all p . toListOf nick)
+
+-- | Filter input on 'Channel's, convience function using 'filterB'. Messages
+-- containing multiple channels will need to match the predicate for /all/
+-- channels!
+onChannel :: (HasChannel i, Monad m) => (Channel -> Bool) -> Bot m i o -> Bot m i o
+onChannel p = filterB (all p . toListOf channel)
