@@ -14,6 +14,16 @@ module Network.Voco.Combinators
     , filterH
     , filterM
     , onChannel
+    -- * Long Bots
+    , LongBot
+    , endless
+    , every
+    , TimeSpec
+    , seconds
+    , minutes
+    , hours
+    , days
+    , weeks
     -- * Re-exports for convenience
     , Alternative(..)
     , asum
@@ -23,8 +33,10 @@ module Network.Voco.Combinators
 
 import Control.Applicative hiding (WrappedArrow(..))
 import Control.Lens (toListOf)
-import Control.Monad (guard)
+import Control.Monad (guard, void)
+import Control.Monad.IO.Class
 import Control.Monad.Random.Class
+import Control.Concurrent (threadDelay)
 import Data.Attoparsec.Text (Parser, parseOnly)
 import Data.ByteString (ByteString)
 import Data.Foldable
@@ -33,6 +45,7 @@ import Data.Text (Text)
 import Network.Voco.Bot
 import Network.Yak
 import Network.Yak.Client (HasNick(..), HasChannel(..))
+import Network.Yak.Responses (RplWelcome)
 
 -- | Transform a bot on some fetchable IRC message (or coproduct thereof) into a
 -- bot on 'ByteString', i.e. on raw IRC input.
@@ -87,3 +100,33 @@ filterM p b = do
 onChannel ::
        (HasChannel i, Monad m) => (Channel -> Bool) -> Bot m i o -> Bot m i o
 onChannel p = filterB (all p . toListOf channel)
+
+-- | A synonym for long running bots. These bots are supposed to run
+-- asynchronously, and are built using the 'endless' combinator.
+type LongBot m o = Bot m RplWelcome o
+
+-- | Runs a bot endlessly in a loop.
+endless :: MonadIO m => LongBot IO () -> LongBot m ()
+endless b = void $ async (b *> endless b)
+-- TODO: this seems like a hack, and also doesn't exit well, but then again
+-- what async version would?
+
+newtype TimeSpec = TimeSpec Int
+
+seconds :: Int -> TimeSpec
+seconds = TimeSpec . (* 1000000)
+
+minutes :: Int -> TimeSpec
+minutes = seconds . (* 60)
+
+hours :: Int -> TimeSpec
+hours = minutes . (* 60)
+
+days :: Int -> TimeSpec
+days = hours . (* 24)
+
+weeks :: Int -> TimeSpec
+weeks = days . (* 7)
+
+every :: MonadIO m => TimeSpec -> LongBot IO () -> LongBot m ()
+every (TimeSpec µs) b = endless $ liftIO (threadDelay µs) *> b

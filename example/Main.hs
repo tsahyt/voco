@@ -18,6 +18,7 @@ import Data.Monoid
 import Data.Text (Text)
 import Network.Voco
 import Network.Yak.Client
+import Network.Yak.Responses
 import Network.Yak.Types
 
 import qualified Data.Attoparsec.Text as A
@@ -46,12 +47,18 @@ main =
     botloop
         server
         (NT $ \m -> evalStateT m (0,0))
-        (standard [chan] <> irc bot)
+        (standard [chan] <> irc bot <> irc ongoing)
 
 addParse :: A.Parser (Int, Int)
 addParse =
     (,) <$> (A.string "!!add" *> A.skipSpace *> A.decimal <* A.skipSpace) <*>
     A.decimal
+
+ongoing :: MonadIO m => LongBot m ()
+ongoing = threes <> sixes
+  where
+    threes = every (seconds 3) $ message chan "beep"
+    sixes = every (seconds 6) $ message chan "boop"
 
 bot :: Bot (StateT (Int, Int) IO) Privmsg ()
 bot =
