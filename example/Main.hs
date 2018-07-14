@@ -28,8 +28,12 @@ import Prelude hiding ((.), id)
 server :: IRCServer
 server =
     IRCServer
-    { serverHost = "irc.snoonet.org"
-    , serverPort = PortNumber 6667
+    { serverConnectionParams =
+        ConnectionParams
+            { connectionHostname = "irc.snoonet.org"
+            , connectionPort = 6667
+            , connectionUseSecure = Nothing
+            , connectionUseSocks = Nothing }
     , serverPass = Nothing
     , botUser = "voco-example"
     , botRealname = "bot"
@@ -43,7 +47,7 @@ allowedNick :: Nickname
 allowedNick = "tsahyt"
 
 main :: IO ()
-main =
+main = 
     botloop
         server
         (NT $ runStderrLoggingT)

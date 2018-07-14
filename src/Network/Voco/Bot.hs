@@ -50,8 +50,7 @@ import Prelude hiding ((.), id)
 -- | An IRC action is simply some message that shall be sent back to the server.
 -- You generally do not need nor want to construct these values directly. See
 -- "Network.Voco.Action".
-data IRCAction =
-    IRCAction SomeMsg
+newtype IRCAction = IRCAction { getAction :: SomeMsg }
 
 -- | The bot abstraction provides a composable way to define IRC bots. A bot is
 -- parameterized over three types. 

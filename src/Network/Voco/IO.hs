@@ -1,41 +1,43 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
-module Network.Voco.IO (
-    botloop,
-    PortID (..),
-    IRCServer(..),
-    -- * Low-Level
-    runActions,
-    botloop',
-    -- * Testing
-    testloop,
-    -- * Natural Transformations
-    module Control.Natural
-) where
 
-import Control.Concurrent
-import Control.Concurrent.Chan
+module Network.Voco.IO
+    ( IRCServer(..)
+    , botloop
+    -- * Low-Level
+    , bootstrap
+    , botloop'
+    , connectIRC
+    -- * Testing
+    -- * Re-Exports
+    -- ** Natural Transformations
+    , module Control.Natural
+    -- ** Networking
+    , ConnectionParams(..)
+    , TLSSettings(..)
+    , ProxySettings(..)
+    , HostName
+    , PortNumber(..)
+    ) where
+
+import Control.Concurrent (forkIO)
+import Control.Monad (forever, void)
+import Control.Monad.Chan
 import Control.Monad.IO.Class
-import Control.Monad (void)
 import Control.Natural
 import Data.ByteString (ByteString)
-import Data.Monoid
 import Data.Maybe (maybeToList)
+import Data.Monoid
 import Data.Text (Text)
-import Network
+import Network (HostName, PortNumber(..))
+import Network.Connection
 import Network.Voco.Bot
 import Network.Yak
 import Network.Yak.Client
 import System.IO
 
 import qualified Data.ByteString as B
-
--- | Run a given list of IRC actions, using a specified send function.
-runActions :: (ByteString -> IO ()) -> [IRCAction] -> IO ()
-runActions send = mapM_ go
-  where
-    go (IRCAction m) = send . emitSome $ m
 
 -- | Generalized bot loop function, taking a way to read a line from the
 -- network, a way to send a line to the network, a natural transformation from
@@ -47,74 +49,49 @@ botloop' ::
     -> (m :~> IO)
     -> Bot m ByteString ()
     -> IO ()
-botloop' input send nt bot = do
-    out <- newChan
-    let printer = do
-            msg <- readChan out
-            send msg
-            printer
-        loop = do
-            i <- liftIO $ input
-            loop
-            {-
-             -ans <- execBot bot i
-             -case ans of
-             -    Nothing -> loop
-             -    Just ks ->
-             -        liftIO (runActions (writeChan out) ks) *> loop
-             -}
-    forkIO $ printer
-    nt $$ loop
+botloop' get send nt bot = do
+    chan <- newChan
+    forkIO $ out chan
+    nt $$ forever (process chan)
+  where
+    out chan = do
+        x <- readChan chan
+        send . emitSome . getAction $ x
+        out chan
+    process chan = do
+        msg <- liftIO $ get
+        runBot bot chan msg
 
-connectIRC :: MonadIO m => IRCServer -> m Handle
-connectIRC server =
-    liftIO $ do
-        h <- connectTo (serverHost server) (serverPort server)
-        hSetBuffering h NoBuffering
-    -- bootstrapping procedure
-        runActions (writeIRC h) $
-            -- send password if given
-            [ IRCAction $ SomeMsg (build p :: Pass)
-            | p <- maybeToList (serverPass server)
-            ] ++
-            -- send user and nick
-            [ IRCAction $
-              SomeMsg
-                  (build
-                       (botUser server)
-                       0
-                       Unused
-                       (Message $ botRealname server) :: User)
-            , IRCAction $ SomeMsg (build (botNickname server) :: Nick)
-            ]
-        return h
+-- | Bootstrapping messages to be sent to an IRC server.
+bootstrap :: IRCServer -> [ByteString]
+bootstrap server =
+    map emitSome $
+    [SomeMsg (build p :: Pass) | p <- maybeToList (serverPass server)] ++
+    [ SomeMsg
+          (build (botUser server) 0 Unused (Message $ botRealname server) :: User)
+    , SomeMsg (build (botNickname server) :: Nick)
+    ]
 
-readIRC :: MonadIO m => Handle -> m ByteString
-readIRC h = do
-    x <- liftIO (B.init <$> B.hGetLine h)
-    pure x
+connectIRC :: IRCServer -> IO Connection
+connectIRC server = do
+    ctx <- initConnectionContext
+    conn <- connectTo ctx $ serverConnectionParams server
+    -- run bootstrap sequence
+    mapM_ (\x -> connectionPut conn $ x <> "\r\n") (bootstrap server)
+    pure conn
 
-writeIRC :: MonadIO m => Handle -> ByteString -> m ()
-writeIRC h x = do
-    liftIO $ B.hPutStr h (x <> "\r\n")
-
--- | Standard bot loop function to work with an IRC server specified as a
--- 'IRCServer' value, a natural transformation, and a bot.
 botloop :: MonadIO m => IRCServer -> (m :~> IO) -> Bot m ByteString () -> IO ()
 botloop server nt bot = do
-    h <- connectIRC server
-    botloop' (readIRC h) (writeIRC h) nt bot
-
--- | A testing function, mocking a bot on stdin/stdout.
-testloop :: MonadIO m => (m :~> IO) -> Bot m ByteString () -> IO ()
-testloop nt bot = botloop' (readIRC stdin) (writeIRC stdout) nt bot
+    conn <- connectIRC server
+    let get = connectionGetLine 4096 conn
+        send x = connectionPut conn (x <> "\r\n")
+    botloop' get send nt bot
 
 -- | Data required to connect to an IRC server
 data IRCServer = IRCServer
-    { serverHost :: HostName
-    , serverPort :: PortID
+    { serverConnectionParams :: ConnectionParams
     , serverPass :: Maybe Text
     , botUser :: Username
     , botRealname :: Text
     , botNickname :: Text
-    } deriving (Eq, Show)
+    }
