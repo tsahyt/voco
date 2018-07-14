@@ -6,23 +6,23 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
-module Network.Voco.Bot (
-    Bot,
+
+module Network.Voco.Bot
+    ( Bot
     -- * Bot Monad
-    runBot,
-    liftBot,
+    , runBot
+    , liftBot
     -- ** Basic Combinators
-    abort,
-    refine,
-    query,
-    divide,
-    natural,
-    async,
-    asyncNat,
+    , abort
+    , refine
+    , query
+    , divide
+    , natural
+    , async
     -- * IRC Actions
-    IRCAction (..),
-    perform
-) where
+    , IRCAction(..)
+    , perform
+    ) where
 
 import Control.Applicative
 import Control.Category
@@ -50,7 +50,8 @@ import Prelude hiding ((.), id)
 -- | An IRC action is simply some message that shall be sent back to the server.
 -- You generally do not need nor want to construct these values directly. See
 -- "Network.Voco.Action".
-data IRCAction = IRCAction SomeMsg
+data IRCAction =
+    IRCAction SomeMsg
 
 -- | The bot abstraction provides a composable way to define IRC bots. A bot is
 -- parameterized over three types. 
@@ -155,7 +156,6 @@ instance Monad m => Choice (Bot m) where
                     let k' = runBot' k c l
                     in fmap Left k'
                 Right r -> pure $ Right r
-    
     right' k =
         Bot $ \c ->
             \case
@@ -228,11 +228,6 @@ perform a = Bot $ \c _ -> lift (writeChan c a)
 -- thread can be garbage collected after execution.
 async :: MonadIO m => Bot IO i a -> Bot m i (Async (Maybe a))
 async b = Bot $ \c -> liftIO . A.async . runBot b c
-
--- | Like 'async' but with a natural transformation to easily build up a monad
--- stack for the asynchronous 'Bot'.
-asyncNat :: MonadIO m => (n :~> IO) -> Bot n i a -> Bot m i (Async (Maybe a))
-asyncNat nt b = async (natural nt b)
 
 -- | Divide and conquer for bots, analogous to the
 -- "Data.Functor.Contravariant.Divisible" module. Due to argument ordering it is

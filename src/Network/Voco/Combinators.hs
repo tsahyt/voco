@@ -1,5 +1,8 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Network.Voco.Combinators
     ( irc
     , parsed
@@ -8,16 +11,20 @@ module Network.Voco.Combinators
     , refine
     , query
     , divide
+    , natural
     , async
+    , async'
     -- * Filtering
     , filterB
     , filterH
     , filterM
     , onChannel
-    -- * Long Bots
+    -- * Self-Running Bots
     , AutoBot
     , endless
+    , endless'
     , every
+    -- ** Time Functions
     , TimeSpec
     , seconds
     , minutes
@@ -32,11 +39,13 @@ module Network.Voco.Combinators
     ) where
 
 import Control.Applicative hiding (WrappedArrow(..))
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async (Async)
 import Control.Lens (toListOf)
-import Control.Monad (guard, void, forever)
+import Control.Monad (forever, guard, void)
 import Control.Monad.IO.Class
 import Control.Monad.Random.Class
-import Control.Concurrent (threadDelay)
+import Control.Natural
 import Data.Attoparsec.Text (Parser, parseOnly)
 import Data.ByteString (ByteString)
 import Data.Foldable
@@ -45,7 +54,7 @@ import Data.Text (Text)
 import Data.Void
 import Network.Voco.Bot
 import Network.Yak
-import Network.Yak.Client (HasNick(..), HasChannel(..))
+import Network.Yak.Client (HasChannel(..), HasNick(..))
 import Network.Yak.Responses (RplWelcome)
 
 -- | Transform a bot on some fetchable IRC message (or coproduct thereof) into a
@@ -102,6 +111,11 @@ onChannel ::
        (HasChannel i, Monad m) => (Channel -> Bool) -> Bot m i o -> Bot m i o
 onChannel p = filterB (all p . toListOf channel)
 
+-- | Like 'async' but with a natural transformation to easily build up a monad
+-- stack for the asynchronous 'Bot'.
+async' :: MonadIO m => (n :~> IO) -> Bot n i a -> Bot m i (Async (Maybe a))
+async' nt b = async (natural nt b)
+
 -- | A synonym for long running bots. These bots are supposed to run
 -- asynchronously, and are built using the 'endless' combinator. They trigger
 -- once and only once in any IRC session, after the welcome reply from the IRC
@@ -113,7 +127,15 @@ type AutoBot m o = Bot m RplWelcome o
 endless :: MonadIO m => (forall i. Bot IO i ()) -> AutoBot m ()
 endless b = void . async $ forever b
 
-newtype TimeSpec = TimeSpec Int
+-- | Like 'endless' but with a natural transformation to easily build up a
+-- monad stack for the endless 'Bot'
+endless' :: MonadIO m => (n :~> IO) -> (forall i. Bot n i ()) -> AutoBot m ()
+endless' nt b = endless (natural nt b)
+
+-- | Intervals of time. 'fromInteger' takes microseconds as a unit.
+newtype TimeSpec =
+    TimeSpec Int
+    deriving (Eq, Show, Ord, Num)
 
 seconds :: Int -> TimeSpec
 seconds = TimeSpec . (* 1000000)
@@ -130,5 +152,7 @@ days = hours . (* 24)
 weeks :: Int -> TimeSpec
 weeks = days . (* 7)
 
+-- | Create a self-running bot which operates once every @k@ seconds, as given
+-- by the 'TimeSpec' value.
 every :: MonadIO m => TimeSpec -> (forall i. Bot IO i ()) -> AutoBot m ()
 every (TimeSpec µs) b = endless $ liftIO (threadDelay µs) *> b
