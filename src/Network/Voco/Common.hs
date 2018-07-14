@@ -9,6 +9,7 @@ module Network.Voco.Common
     , logRaw
     ) where
 
+import Control.Concurrent.Classy (MonadConc)
 import Control.Lens
 import Control.Monad.Logger
 import Data.ByteString (ByteString)
@@ -24,7 +25,7 @@ import qualified Data.List.NonEmpty as N
 import qualified Data.Text.Encoding as T
 
 -- | A bot responding to ping.
-pingpong :: Monad m => Bot m Ping ()
+pingpong :: MonadConc m => Bot m Ping ()
 pingpong = do
     ping <- query
     pong (ping ^. pingServer1) (ping ^. pingServer2)
@@ -32,7 +33,7 @@ pingpong = do
 -- | A bot executing joins to a given list of channels after the welcome
 -- message. All channels are sent in one go! See 'delayedJoinBatch' for a
 -- batched variant.
-delayedJoin :: Monad m => NonEmpty Channel -> Bot m RplWelcome ()
+delayedJoin :: MonadConc m => NonEmpty Channel -> Bot m RplWelcome ()
 delayedJoin = join
 
 chunksOf :: Int -> [a] -> [[a]]
@@ -42,7 +43,7 @@ chunksOf n xs =
     in front : chunksOf n back
 
 -- | Like 'delayedJoin' but sends join messages in batches of @n@.
-delayedJoinBatch :: Monad m => Int -> NonEmpty Channel -> Bot m RplWelcome ()
+delayedJoinBatch :: MonadConc m => Int -> NonEmpty Channel -> Bot m RplWelcome ()
 delayedJoinBatch n cs =
     let chunked = chunksOf n . N.toList $ cs
      in mapM_ (join . N.fromList) chunked
@@ -57,5 +58,5 @@ logRaw = do
     logOtherN (LevelOther "RAW") (T.decodeUtf8 i)
 
 -- | A standard IRC bot handlings pings and initial joins.
-standard :: Monad m => NonEmpty Channel -> Bot m ByteString ()
+standard :: MonadConc m => NonEmpty Channel -> Bot m ByteString ()
 standard cs = irc pingpong <|> irc (delayedJoinBatch 8 cs)

@@ -219,7 +219,7 @@ query = id
 
 -- | Perform an 'IRCAction'. For most uses, the convenience functions in
 -- "Network.Voco.Action" are preferable.
-perform :: Monad m => IRCAction -> Bot m i ()
+perform :: MonadConc m => IRCAction -> Bot m i ()
 perform a = undefined -- Bot $ \_ -> pure ((), [a])
 
 -- | Apply a natural transformation to the underlying monad of a bot

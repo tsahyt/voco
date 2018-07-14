@@ -18,6 +18,7 @@ module Network.Voco.Action
     , nick
     ) where
 
+import Control.Concurrent.Classy (MonadConc)
 import Data.Text (Text)
 import Data.Monoid
 import Data.List.NonEmpty
@@ -25,47 +26,47 @@ import Network.Voco.Bot
 import Network.Yak.Client hiding (nick)
 import Network.Yak.Types
 
-pong :: Monad m => Hostname -> Maybe Hostname -> Bot m i ()
+pong :: MonadConc m => Hostname -> Maybe Hostname -> Bot m i ()
 pong h1 h2 = perform . IRCAction $ SomeMsg (build h1 h2 :: Pong)
 
-user :: Monad m => Username -> Text -> Bot m i ()
+user :: MonadConc m => Username -> Text -> Bot m i ()
 user u r = perform . IRCAction $ SomeMsg (build u 0 Unused (Message r) :: User)
 
-pass :: Monad m => Text -> Bot m i ()
+pass :: MonadConc m => Text -> Bot m i ()
 pass p = perform . IRCAction $ SomeMsg (build p :: Pass)
 
-nickservIdentify :: Monad m => Text -> Bot m i ()
+nickservIdentify :: MonadConc m => Text -> Bot m i ()
 nickservIdentify p = messageUser "NickServ" (Message $ "IDENTIFY " <> p)
 
-message :: Monad m => Channel -> Message -> Bot m i ()
+message :: MonadConc m => Channel -> Message -> Bot m i ()
 message c m = perform . IRCAction $ SomeMsg (build [Left c] m :: Privmsg)
 
-messageUser :: Monad m => Nickname -> Message -> Bot m i ()
+messageUser :: MonadConc m => Nickname -> Message -> Bot m i ()
 messageUser n m = perform . IRCAction $ SomeMsg (build [Right n] m :: Privmsg)
 
-notice :: Monad m => Channel -> Message -> Bot m i ()
+notice :: MonadConc m => Channel -> Message -> Bot m i ()
 notice c m = perform . IRCAction $ SomeMsg (build [Left c] m :: Notice)
 
-noticeUser :: Monad m => Nickname -> Message -> Bot m i ()
+noticeUser :: MonadConc m => Nickname -> Message -> Bot m i ()
 noticeUser n m = perform . IRCAction $ SomeMsg (build [Right n] m :: Notice)
 
-join :: Monad m => NonEmpty Channel -> Bot m i ()
+join :: MonadConc m => NonEmpty Channel -> Bot m i ()
 join cs = perform . IRCAction $ SomeMsg (build cs [] :: Join)
 
-join' :: Monad m => Channel -> Bot m i ()
+join' :: MonadConc m => Channel -> Bot m i ()
 join' x = join [x]
 
-part :: Monad m => NonEmpty Channel -> Maybe Message -> Bot m i ()
+part :: MonadConc m => NonEmpty Channel -> Maybe Message -> Bot m i ()
 part cs m = perform . IRCAction $ SomeMsg (build cs m :: Part)
 
-part' :: Monad m => Channel -> Maybe Message -> Bot m i ()
+part' :: MonadConc m => Channel -> Maybe Message -> Bot m i ()
 part' x = part [x]
 
-nick :: Monad m => Nickname -> Bot m i ()
+nick :: MonadConc m => Nickname -> Bot m i ()
 nick n = perform . IRCAction $ SomeMsg (build n :: Nick)
 
-kick :: Monad m => Channel -> Nickname -> Maybe Message -> Bot m i ()
+kick :: MonadConc m => Channel -> Nickname -> Maybe Message -> Bot m i ()
 kick c n m = perform . IRCAction $ SomeMsg (build [c] [n] m :: Kick)
 
-invite :: Monad m => Nickname -> Channel -> Bot m i ()
+invite :: MonadConc m => Nickname -> Channel -> Bot m i ()
 invite n c = perform . IRCAction $ SomeMsg (build n c :: Invite)
