@@ -31,8 +31,8 @@ server =
     { serverConnectionParams =
         ConnectionParams
             { connectionHostname = "irc.snoonet.org"
-            , connectionPort = 6667
-            , connectionUseSecure = Nothing
+            , connectionPort = 6697
+            , connectionUseSecure = Just $ TLSSettingsSimple False False False
             , connectionUseSocks = Nothing }
     , serverPass = Nothing
     , botUser = "voco-example"
@@ -51,7 +51,7 @@ main =
     botloop
         server
         (NT $ runStderrLoggingT)
-        (standard [chan] <> logRaw <> irc ongoing)
+        (standard [chan] <> logRaw)
 
 ongoing :: MonadIO m => AutoBot m ()
 ongoing = every (seconds 3) $ message chan "boop"

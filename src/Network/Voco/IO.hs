@@ -10,6 +10,7 @@ module Network.Voco.IO
     , botloop'
     , connectIRC
     -- * Testing
+    , testloop
     -- * Re-Exports
     -- ** Natural Transformations
     , module Control.Natural
@@ -86,6 +87,9 @@ botloop server nt bot = do
     let get = connectionGetLine 4096 conn
         send x = connectionPut conn (x <> "\r\n")
     botloop' get send nt bot
+
+testloop :: MonadIO m => (m :~> IO) -> Bot m ByteString () -> IO ()
+testloop = botloop' B.getLine (B.putStr . (<> "\r\n"))
 
 -- | Data required to connect to an IRC server
 data IRCServer = IRCServer
