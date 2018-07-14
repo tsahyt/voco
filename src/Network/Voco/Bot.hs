@@ -10,8 +10,6 @@ module Network.Voco.Bot (
     Bot,
     -- * Bot Monad
     runBot,
-    execBot,
-    evalBot,
     liftBot,
     -- ** Basic Combinators
     abort,
@@ -27,7 +25,9 @@ module Network.Voco.Bot (
 
 import Control.Applicative
 import Control.Category
-import Control.Concurrent.Async (Async)
+import Control.Concurrent.Classy
+import Control.Concurrent.Classy.Async (Async)
+import qualified Control.Concurrent.Classy.Async as A
 import Control.Lens.Zoom
 import Control.Monad.Except
 import Control.Monad.Logger
@@ -45,14 +45,12 @@ import Data.Profunctor
 import Data.Text (Text)
 import Network.Yak (SomeMsg)
 
-import qualified Control.Concurrent.Async as A
 import Prelude hiding ((.), id)
 
 -- | An IRC action is simply some message that shall be sent back to the server.
 -- You generally do not need nor want to construct these values directly. See
--- "Network.Voco.Action" for normal IRC actions, and the 'async' combinator for
--- future actions.
-data IRCAction = IRCAction SomeMsg | FutureAction (Async [IRCAction])
+-- "Network.Voco.Action".
+data IRCAction = IRCAction SomeMsg
 
 -- | The bot abstraction provides a composable way to define IRC bots. A bot is
 -- parameterized over three types. 
@@ -78,69 +76,44 @@ data IRCAction = IRCAction SomeMsg | FutureAction (Async [IRCAction])
 -- For bots working on multiple possible inputs, 'Either' can be used. See
 -- "Data.Coproduct" for more.
 newtype Bot m i o = Bot
-    { runBot' :: i -> MaybeT m (o, [IRCAction])
+    { runBot' :: i -> MaybeT m o
     } deriving (Functor)
 
-runBot :: Bot m i o -> i -> m (Maybe (o, [IRCAction]))
+-- | Obtain the final result of a bot computation
+runBot :: Bot m i o -> i -> m (Maybe o)
 runBot b i = runMaybeT $ runBot' b i
-
--- | Obtain the list of actions performed by a bot.
-execBot :: Functor m => Bot m i o -> i -> m (Maybe [IRCAction])
-execBot b i = runMaybeT (fmap snd (runBot' b i))
-
--- | Obtain the final result of a bot computation, throwing away the list of
--- actions. This is usually not particularly useful, but is provided for
--- completeness.
-evalBot :: Functor m => Bot m i o -> i -> m (Maybe o)
-evalBot b i = runMaybeT (fmap fst (runBot' b i))
 
 -- | 'lift' for 'Bot', since there cannot be a 'MonadTrans' instance due to the
 -- argument order.
 liftBot :: Monad m => m a -> Bot m i a
-liftBot = Bot . const . lift . fmap (\x -> (x, []))
+liftBot = Bot . const . lift
 
 instance Monad m => Category (Bot m) where
-    id = Bot $ \i -> pure (i, [])
-    (Bot f) . (Bot g) =
-        Bot $ \a -> do
-            (b, as) <- g a
-            second (as ++) <$> f b
+    id = Bot $ \i -> pure i
+    (Bot f) . (Bot g) = Bot $ g >=> f
 
 instance Monad m => Applicative (Bot m i) where
-    pure x = Bot $ \_ -> lift (pure (x, mempty))
-    (Bot f) <*> (Bot a) =
-        Bot $ \i -> do
-            (f', fa) <- f i
-            (a', aa) <- a i
-            pure $ (f' a', fa ++ aa)
+    pure x = Bot $ \_ -> MaybeT . pure . Just $ x
+    a <*> b = Bot $ \i -> runBot' a i <*> runBot' b i
 
 instance Monad m => Monad (Bot m i) where
     a >>= k =
         Bot $ \i -> do
-            (x, xa) <- runBot' a i
-            (y, ya) <- runBot' (k x) i
-            pure (y, xa ++ ya)
+            x <- runBot' a i
+            y <- runBot' (k x) i
+            pure y
 
 instance MonadState s m => MonadState s (Bot m i) where
     state f = liftBot (state f)
 
 instance MonadReader r m => MonadReader r (Bot m i) where
     ask = liftBot ask
-    local f k =
-        Bot $ \i ->
-            let k' = runBot' k i
-            in local f k'
+    local f k = Bot $ local f . runBot' k
 
 instance MonadWriter w m => MonadWriter w (Bot m i) where
     tell x = liftBot (tell x)
-    listen k =
-        Bot $ \i ->
-            let k' = runBot' k i
-            in swapWriter $ listen k'
-    pass k =
-        Bot $ \i ->
-            let k' = swapWriter $ runBot' k i
-            in pass k'
+    listen k = Bot $ listen . runBot' k
+    pass k = Bot $ pass . runBot' k
 
 instance MonadError e m => MonadError e (Bot m i) where
     throwError e = Bot $ \_ -> throwError e
@@ -160,35 +133,35 @@ instance MonadIO m => MonadIO (Bot m i) where
 
 instance MonadLogger m => MonadLogger (Bot m i) where
     monadLoggerLog loc source level m =
-        Bot $ \_ -> (, []) <$> monadLoggerLog loc source level m
+        liftBot $ monadLoggerLog loc source level m
 
 instance Functor m => Profunctor (Bot m) where
     lmap f (Bot k) = Bot (lmap f k)
-    rmap f (Bot k) = Bot (rmap (fmap (first f)) k)
+    rmap f (Bot k) = Bot (rmap (fmap f) k)
 
 instance Functor m => Strong (Bot m) where
     first' k =
         Bot $ \(i, c) ->
             let k' = runBot' k i
-            in fmap (first (, c)) k'
-    second' k = 
+            in (, c) <$> k'
+    second' k =
         Bot $ \(c, i) ->
             let k' = runBot' k i
-            in fmap (first (c, )) k'
+            in (c, ) <$> k'
 
 instance Monad m => Choice (Bot m) where
     left' k =
         Bot $ \case
             Left l ->
                 let k' = runBot' k l
-                in fmap (first Left) k'
-            Right r -> pure $ (Right r, [])
+                in fmap Left k'
+            Right r -> pure $ Right r
     right' k =
         Bot $ \case
-            Left l -> pure $ (Left l, [])
+            Left l -> pure $ Left l
             Right r -> 
                 let k' = runBot' k r
-                in fmap (first Right) k'
+                in fmap Right k'
 
 -- | First non-failing result is returned.
 instance Monad m => Alternative (Bot m i) where
@@ -217,20 +190,15 @@ instance (Monad m, Monoid o) => Monoid (Bot m i o) where
                             Just bres' -> pure . Just $ ares' <> bres'
 
 type instance Zoomed (Bot m i) =
-     Zoomed (ReaderT i (WriterT [IRCAction] (MaybeT m)))
+     Zoomed (ReaderT i (MaybeT m))
 
 instance Zoom m n s t => Zoom (Bot m i) (Bot n i) s t where
     -- Implemented via roundtrip to monad transformers. In reality this costs
     -- only the fmap, since everything else is newtypes.
     zoom l x = stackToBot $$ zoom l (botToStack $$ x)
       where
-        stackToBot = NT (Bot . (runWriterT .) . runReaderT)
-        botToStack = NT (ReaderT . (WriterT <$>) . runBot')
-
--- | Helper function for 'MonadWriter' implementation
-swapWriter :: Functor f => f ((a, x), w) -> f ((a, w), x)
-swapWriter = fmap $ \((a, x), w) -> ((a, w), x)
-{-# INLINE swapWriter #-}
+        stackToBot = NT (Bot . runReaderT)
+        botToStack = NT (ReaderT . runBot')
 
 -- | 'empty' without the 'Monad' constraint required by '(<|>)'.
 abort :: Applicative m => Bot m i a
@@ -247,12 +215,12 @@ refine f (Bot k) =
 
 -- | Obtain the input to a bot.
 query :: Monad m => Bot m i i
-query = Bot $ \i -> pure (i, [])
+query = id
 
 -- | Perform an 'IRCAction'. For most uses, the convenience functions in
 -- "Network.Voco.Action" are preferable.
 perform :: Monad m => IRCAction -> Bot m i ()
-perform a = Bot $ \_ -> pure ((), [a])
+perform a = undefined -- Bot $ \_ -> pure ((), [a])
 
 -- | Apply a natural transformation to the underlying monad of a bot
 natural :: (m :~> n) -> Bot m i o -> Bot n i o
@@ -274,14 +242,16 @@ natural nt b = Bot $ MaybeT . (nt $$) . runMaybeT . runBot' b
 -- execution/!
 --
 -- Note that 'async' can be nested.
-async :: MonadIO m => Bot IO i a -> Bot m i (Async (Maybe a))
-async b =
-    Bot $ \i ->
-        liftIO $ do
-            future <- A.async $ runBot b i
-            let acts = concat . maybeToList . fmap snd <$> future
-                res  = fmap fst <$> future
-            pure (res, [FutureAction acts])
+async :: MonadIO m => Bot IO i a -> Bot m i (Async m (Maybe a))
+async b = undefined
+    {-
+     -Bot $ \i ->
+     -    liftIO $ do
+     -        future <- A.async $ runBot b i
+     -        let acts = concat . maybeToList . fmap snd <$> future
+     -            res  = fmap fst <$> future
+     -        pure (res, [FutureAction acts])
+     -}
 
 -- | Divide and conquer for bots, analogous to the
 -- "Data.Functor.Contravariant.Divisible" module. Due to argument ordering it is
@@ -297,6 +267,6 @@ divide ::
 divide f l r =
     Bot $ \i -> do
         let (j, k) = f i
-        (l', as) <- runBot' l j
-        (r', bs) <- runBot' r k
-        pure (l' <> r', as <> bs)
+        l' <- runBot' l j
+        r' <- runBot' r k
+        pure $ l' <> r'

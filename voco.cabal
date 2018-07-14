@@ -35,7 +35,7 @@ library
                        monad-logger,
                        lens,
                        attoparsec,
-                       async
+                       concurrency
   default-language:    Haskell2010
 
 executable voco-example

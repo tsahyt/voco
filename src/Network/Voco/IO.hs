@@ -15,7 +15,6 @@ module Network.Voco.IO (
 ) where
 
 import Control.Concurrent
-import Control.Concurrent.Async
 import Control.Concurrent.Chan
 import Control.Monad.IO.Class
 import Control.Monad (void)
@@ -35,10 +34,8 @@ import qualified Data.ByteString as B
 -- | Run a given list of IRC actions, using a specified send function.
 runActions :: (ByteString -> IO ()) -> [IRCAction] -> IO ()
 runActions send = mapM_ go
-    where go (IRCAction m) = send . emitSome $ m
-          go (FutureAction a) = void . forkIO $ do
-             xs <- wait a
-             mapM_ go xs
+  where
+    go (IRCAction m) = send . emitSome $ m
 
 -- | Generalized bot loop function, taking a way to read a line from the
 -- network, a way to send a line to the network, a natural transformation from
@@ -58,11 +55,14 @@ botloop' input send nt bot = do
             printer
         loop = do
             i <- liftIO $ input
-            ans <- execBot bot i
-            case ans of
-                Nothing -> loop
-                Just ks ->
-                    liftIO (runActions (writeChan out) ks) *> loop
+            loop
+            {-
+             -ans <- execBot bot i
+             -case ans of
+             -    Nothing -> loop
+             -    Just ks ->
+             -        liftIO (runActions (writeChan out) ks) *> loop
+             -}
     forkIO $ printer
     nt $$ loop
 
