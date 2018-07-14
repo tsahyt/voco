@@ -15,9 +15,10 @@ module Network.Voco.Bot (
     abort,
     refine,
     query,
-    natural,
     divide,
+    natural,
     async,
+    asyncNat,
     -- * IRC Actions
     IRCAction (..),
     perform
@@ -25,10 +26,8 @@ module Network.Voco.Bot (
 
 import Control.Applicative
 import Control.Category
-import Control.Concurrent.Classy
-import Control.Concurrent.Classy.Async (Async)
-import qualified Control.Concurrent.Classy.Async as A
-import Control.Lens.Zoom
+import Control.Concurrent.Async (Async)
+import Control.Monad.Chan
 import Control.Monad.Except
 import Control.Monad.Logger
 import Control.Monad.Random.Class
@@ -45,6 +44,7 @@ import Data.Profunctor
 import Data.Text (Text)
 import Network.Yak (SomeMsg)
 
+import qualified Control.Concurrent.Async as A
 import Prelude hiding ((.), id)
 
 -- | An IRC action is simply some message that shall be sent back to the server.
@@ -76,11 +76,11 @@ data IRCAction = IRCAction SomeMsg
 -- For bots working on multiple possible inputs, 'Either' can be used. See
 -- "Data.Coproduct" for more.
 newtype Bot m i o = Bot
-    { runBot' :: Chan m IRCAction -> i -> MaybeT m o
+    { runBot' :: Chan IRCAction -> i -> MaybeT m o
     } deriving (Functor)
 
 -- | Obtain the final result of a bot computation
-runBot :: Bot m i o -> Chan m IRCAction -> i -> m (Maybe o)
+runBot :: Bot m i o -> Chan IRCAction -> i -> m (Maybe o)
 runBot b c i = runMaybeT $ runBot' b c i
 
 -- | 'lift' for 'Bot', since there cannot be a 'MonadTrans' instance due to the
@@ -190,19 +190,6 @@ instance (Monad m, Monoid o) => Monoid (Bot m i o) where
                             Nothing -> pure ares
                             Just bres' -> pure . Just $ ares' <> bres'
 
-{-
- -type instance Zoomed (Bot m i) =
- -     Zoomed (ReaderT i (MaybeT m))
- -
- -instance Zoom m n s t => Zoom (Bot m i) (Bot n i) s t where
- -    -- Implemented via roundtrip to monad transformers. In reality this costs
- -    -- only the fmap, since everything else is newtypes.
- -    zoom l x = stackToBot $$ zoom l (botToStack $$ x)
- -      where
- -        stackToBot = NT (Bot . runReaderT)
- -        botToStack = NT (ReaderT . runBot')
- -}
-
 -- | 'empty' without the 'Monad' constraint required by '(<|>)'.
 abort :: Applicative m => Bot m i a
 abort = Bot $ \_ _ -> MaybeT $ pure Nothing
@@ -220,14 +207,13 @@ refine f (Bot k) =
 query :: Monad m => Bot m i i
 query = id
 
+natural :: (m :~> n) -> Bot m i o -> Bot n i o
+natural nat b = Bot $ \c i -> MaybeT (nat $$ runBot b c i)
+
 -- | Perform an 'IRCAction'. For most uses, the convenience functions in
 -- "Network.Voco.Action" are preferable.
-perform :: MonadConc m => IRCAction -> Bot m i ()
+perform :: MonadChan m => IRCAction -> Bot m i ()
 perform a = Bot $ \c _ -> lift (writeChan c a)
-
--- | Apply a natural transformation to the underlying monad of a bot
-natural :: (m :~> n) -> Bot m i o -> Bot n i o
-natural nt b = undefined
 
 -- | Run the sub-bot asynchronously. Note that the sub-bot is run with 'IO' as
 -- its underlying monad. You can use e.g. 'natural' to rebuild some custom
@@ -240,21 +226,13 @@ natural nt b = undefined
 -- or killed. Consult "Control.Concurrent.Async" for details. If this is not
 -- needed, be sure to not let the value linger around in scope, such that the
 -- thread can be garbage collected after execution.
---
--- All 'IRCAction's performed in the sub-bot will be executed /at the end of its
--- execution/!
---
--- Note that 'async' can be nested.
-async :: MonadIO m => Bot IO i a -> Bot m i (Async m (Maybe a))
-async b = undefined
-    {-
-     -Bot $ \i ->
-     -    liftIO $ do
-     -        future <- A.async $ runBot b i
-     -        let acts = concat . maybeToList . fmap snd <$> future
-     -            res  = fmap fst <$> future
-     -        pure (res, [FutureAction acts])
-     -}
+async :: MonadIO m => Bot IO i a -> Bot m i (Async (Maybe a))
+async b = Bot $ \c -> liftIO . A.async . runBot b c
+
+-- | Like 'async' but with a natural transformation to easily build up a monad
+-- stack for the asynchronous 'Bot'.
+asyncNat :: MonadIO m => (n :~> IO) -> Bot n i a -> Bot m i (Async (Maybe a))
+asyncNat nt b = async (natural nt b)
 
 -- | Divide and conquer for bots, analogous to the
 -- "Data.Functor.Contravariant.Divisible" module. Due to argument ordering it is

@@ -15,7 +15,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Data.Coproduct
+  exposed-modules:     Control.Monad.Chan
+                       Data.Coproduct
                        Network.Voco
                        Network.Voco.Action
                        Network.Voco.Bot
@@ -35,7 +36,7 @@ library
                        monad-logger,
                        lens,
                        attoparsec,
-                       concurrency
+                       async
   default-language:    Haskell2010
 
 executable voco-example

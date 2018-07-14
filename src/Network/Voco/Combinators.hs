@@ -1,4 +1,5 @@
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 module Network.Voco.Combinators
     ( irc
     , parsed
@@ -6,7 +7,6 @@ module Network.Voco.Combinators
     , abort
     , refine
     , query
-    , natural
     , divide
     , async
     -- * Filtering
@@ -15,7 +15,7 @@ module Network.Voco.Combinators
     , filterM
     , onChannel
     -- * Long Bots
-    , LongBot
+    , AutoBot
     , endless
     , every
     , TimeSpec
@@ -33,7 +33,7 @@ module Network.Voco.Combinators
 
 import Control.Applicative hiding (WrappedArrow(..))
 import Control.Lens (toListOf)
-import Control.Monad (guard, void)
+import Control.Monad (guard, void, forever)
 import Control.Monad.IO.Class
 import Control.Monad.Random.Class
 import Control.Concurrent (threadDelay)
@@ -42,6 +42,7 @@ import Data.ByteString (ByteString)
 import Data.Foldable
 import Data.Profunctor
 import Data.Text (Text)
+import Data.Void
 import Network.Voco.Bot
 import Network.Yak
 import Network.Yak.Client (HasNick(..), HasChannel(..))
@@ -102,14 +103,15 @@ onChannel ::
 onChannel p = filterB (all p . toListOf channel)
 
 -- | A synonym for long running bots. These bots are supposed to run
--- asynchronously, and are built using the 'endless' combinator.
-type LongBot m o = Bot m RplWelcome o
+-- asynchronously, and are built using the 'endless' combinator. They trigger
+-- once and only once in any IRC session, after the welcome reply from the IRC
+-- server.
+type AutoBot m o = Bot m RplWelcome o
 
--- | Runs a bot endlessly in a loop.
-endless :: MonadIO m => LongBot IO () -> LongBot m ()
-endless b = void $ async (b *> endless b)
--- TODO: this seems like a hack, and also doesn't exit well, but then again
--- what async version would?
+-- | Runs a bot endlessly in a loop. This acts like the 'forever' combinator,
+-- but lifted to bots.
+endless :: MonadIO m => (forall i. Bot IO i ()) -> AutoBot m ()
+endless b = void . async $ forever b
 
 newtype TimeSpec = TimeSpec Int
 
@@ -128,5 +130,5 @@ days = hours . (* 24)
 weeks :: Int -> TimeSpec
 weeks = days . (* 7)
 
-every :: MonadIO m => TimeSpec -> LongBot IO () -> LongBot m ()
+every :: MonadIO m => TimeSpec -> (forall i. Bot IO i ()) -> AutoBot m ()
 every (TimeSpec µs) b = endless $ liftIO (threadDelay µs) *> b
