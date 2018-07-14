@@ -76,31 +76,31 @@ data IRCAction = IRCAction SomeMsg
 -- For bots working on multiple possible inputs, 'Either' can be used. See
 -- "Data.Coproduct" for more.
 newtype Bot m i o = Bot
-    { runBot' :: i -> MaybeT m o
+    { runBot' :: Chan m IRCAction -> i -> MaybeT m o
     } deriving (Functor)
 
 -- | Obtain the final result of a bot computation
-runBot :: Bot m i o -> i -> m (Maybe o)
-runBot b i = runMaybeT $ runBot' b i
+runBot :: Bot m i o -> Chan m IRCAction -> i -> m (Maybe o)
+runBot b c i = runMaybeT $ runBot' b c i
 
 -- | 'lift' for 'Bot', since there cannot be a 'MonadTrans' instance due to the
 -- argument order.
 liftBot :: Monad m => m a -> Bot m i a
-liftBot = Bot . const . lift
+liftBot x = Bot $ \_ _ -> lift x
 
 instance Monad m => Category (Bot m) where
-    id = Bot $ \i -> pure i
-    (Bot f) . (Bot g) = Bot $ g >=> f
+    id = Bot $ \_ i -> pure i
+    (Bot f) . (Bot g) = Bot $ \c -> g c >=> f c
 
 instance Monad m => Applicative (Bot m i) where
-    pure x = Bot $ \_ -> MaybeT . pure . Just $ x
-    a <*> b = Bot $ \i -> runBot' a i <*> runBot' b i
+    pure x = Bot $ \_ _ -> MaybeT . pure . Just $ x
+    a <*> b = Bot $ \c i -> runBot' a c i <*> runBot' b c i
 
 instance Monad m => Monad (Bot m i) where
     a >>= k =
-        Bot $ \i -> do
-            x <- runBot' a i
-            y <- runBot' (k x) i
+        Bot $ \c i -> do
+            x <- runBot' a c i
+            y <- runBot' (k x) c i
             pure y
 
 instance MonadState s m => MonadState s (Bot m i) where
@@ -108,19 +108,17 @@ instance MonadState s m => MonadState s (Bot m i) where
 
 instance MonadReader r m => MonadReader r (Bot m i) where
     ask = liftBot ask
-    local f k = Bot $ local f . runBot' k
+    local f k = Bot $ \c -> local f . runBot' k c
 
 instance MonadWriter w m => MonadWriter w (Bot m i) where
     tell x = liftBot (tell x)
-    listen k = Bot $ listen . runBot' k
-    pass k = Bot $ pass . runBot' k
+    listen k = Bot $ \c -> listen . runBot' k c
+    pass k = Bot $ \c -> pass . runBot' k c
 
 instance MonadError e m => MonadError e (Bot m i) where
-    throwError e = Bot $ \_ -> throwError e
-    catchError b k =
-        Bot $ \i ->
-            let b' = runBot' b i
-            in catchError b' (fmap (flip runBot' i) k)
+    throwError e = Bot $ \_ _ -> throwError e
+    catchError a h =
+        Bot $ \c i -> catchError (runBot' a c i) (fmap (\x -> runBot' x c i) h)
 
 instance MonadRandom m => MonadRandom (Bot m i) where
     getRandomR = liftBot . getRandomR
@@ -136,82 +134,87 @@ instance MonadLogger m => MonadLogger (Bot m i) where
         liftBot $ monadLoggerLog loc source level m
 
 instance Functor m => Profunctor (Bot m) where
-    lmap f (Bot k) = Bot (lmap f k)
-    rmap f (Bot k) = Bot (rmap (fmap f) k)
+    lmap f (Bot k) = Bot $ \c -> (lmap f (k c))
+    rmap f (Bot k) = Bot $ \c -> (rmap (fmap f) (k c))
 
 instance Functor m => Strong (Bot m) where
     first' k =
-        Bot $ \(i, c) ->
-            let k' = runBot' k i
+        Bot $ \chan (i, c) ->
+            let k' = runBot' k chan i
             in (, c) <$> k'
     second' k =
-        Bot $ \(c, i) ->
-            let k' = runBot' k i
+        Bot $ \chan (c, i) ->
+            let k' = runBot' k chan i
             in (c, ) <$> k'
 
 instance Monad m => Choice (Bot m) where
     left' k =
-        Bot $ \case
-            Left l ->
-                let k' = runBot' k l
-                in fmap Left k'
-            Right r -> pure $ Right r
+        Bot $ \c ->
+            \case
+                Left l ->
+                    let k' = runBot' k c l
+                    in fmap Left k'
+                Right r -> pure $ Right r
+    
     right' k =
-        Bot $ \case
-            Left l -> pure $ Left l
-            Right r -> 
-                let k' = runBot' k r
-                in fmap Right k'
+        Bot $ \c ->
+            \case
+                Left l -> pure $ Left l
+                Right r ->
+                    let k' = runBot' k c r
+                    in fmap Right k'
 
 -- | First non-failing result is returned.
 instance Monad m => Alternative (Bot m i) where
-    empty = Bot . const . MaybeT . pure $ Nothing
+    empty = Bot $ \_ _ -> MaybeT . pure $ Nothing
     (Bot a) <|> (Bot b) =
-        Bot $ \i ->
+        Bot $ \c i ->
             MaybeT $ do
-                a' <- runMaybeT $ a i
+                a' <- runMaybeT $ a c i
                 case a' of
-                    Nothing -> runMaybeT $ b i
+                    Nothing -> runMaybeT $ b c i
                     Just y -> pure a'
 
 -- | Collect all non-failing results.
 instance (Monad m, Monoid o) => Monoid (Bot m i o) where
     mempty = empty
     mappend a b =
-        Bot $ \i ->
+        Bot $ \c i ->
             MaybeT $ do
-                ares <- runBot a i
+                ares <- runBot a c i
                 case ares of
-                    Nothing -> runBot b i
+                    Nothing -> runBot b c i
                     Just ares' -> do
-                        bres <- runBot b i
+                        bres <- runBot b c i
                         case bres of
                             Nothing -> pure ares
                             Just bres' -> pure . Just $ ares' <> bres'
 
-type instance Zoomed (Bot m i) =
-     Zoomed (ReaderT i (MaybeT m))
-
-instance Zoom m n s t => Zoom (Bot m i) (Bot n i) s t where
-    -- Implemented via roundtrip to monad transformers. In reality this costs
-    -- only the fmap, since everything else is newtypes.
-    zoom l x = stackToBot $$ zoom l (botToStack $$ x)
-      where
-        stackToBot = NT (Bot . runReaderT)
-        botToStack = NT (ReaderT . runBot')
+{-
+ -type instance Zoomed (Bot m i) =
+ -     Zoomed (ReaderT i (MaybeT m))
+ -
+ -instance Zoom m n s t => Zoom (Bot m i) (Bot n i) s t where
+ -    -- Implemented via roundtrip to monad transformers. In reality this costs
+ -    -- only the fmap, since everything else is newtypes.
+ -    zoom l x = stackToBot $$ zoom l (botToStack $$ x)
+ -      where
+ -        stackToBot = NT (Bot . runReaderT)
+ -        botToStack = NT (ReaderT . runBot')
+ -}
 
 -- | 'empty' without the 'Monad' constraint required by '(<|>)'.
 abort :: Applicative m => Bot m i a
-abort = Bot $ \_ -> MaybeT $ pure Nothing
+abort = Bot $ \_ _ -> MaybeT $ pure Nothing
 
 -- | Refine the input to a bot, possibly failing. Like 'lmap' but with a
 -- computation that can fail. Useful e.g. for applying a parser to an input.
 refine :: Applicative m => (a -> Maybe b) -> Bot m b c -> Bot m a c
 refine f (Bot k) =
-    Bot $ \i ->
+    Bot $ \c i ->
         case f i of
             Nothing -> MaybeT $ pure Nothing
-            Just x -> k x
+            Just x -> k c x
 
 -- | Obtain the input to a bot.
 query :: Monad m => Bot m i i
@@ -220,11 +223,11 @@ query = id
 -- | Perform an 'IRCAction'. For most uses, the convenience functions in
 -- "Network.Voco.Action" are preferable.
 perform :: MonadConc m => IRCAction -> Bot m i ()
-perform a = undefined -- Bot $ \_ -> pure ((), [a])
+perform a = Bot $ \c _ -> lift (writeChan c a)
 
 -- | Apply a natural transformation to the underlying monad of a bot
 natural :: (m :~> n) -> Bot m i o -> Bot n i o
-natural nt b = Bot $ MaybeT . (nt $$) . runMaybeT . runBot' b 
+natural nt b = undefined
 
 -- | Run the sub-bot asynchronously. Note that the sub-bot is run with 'IO' as
 -- its underlying monad. You can use e.g. 'natural' to rebuild some custom
@@ -265,8 +268,8 @@ divide ::
     -> Bot m k o
     -> Bot m i o
 divide f l r =
-    Bot $ \i -> do
+    Bot $ \c i -> do
         let (j, k) = f i
-        l' <- runBot' l j
-        r' <- runBot' r k
+        l' <- runBot' l c j
+        r' <- runBot' r c k
         pure $ l' <> r'

@@ -47,7 +47,7 @@ main =
     botloop
         server
         (NT $ \m -> evalStateT m (0,0))
-        (standard [chan] <> irc bot <> irc ongoing)
+        (standard [chan] <> irc ongoing)
 
 addParse :: A.Parser (Int, Int)
 addParse =
@@ -60,30 +60,32 @@ ongoing = threes <> sixes
     threes = every (seconds 3) $ message chan "beep"
     sixes = every (seconds 6) $ message chan "boop"
 
-bot :: Bot (StateT (Int, Int) IO) Privmsg ()
-bot =
-    filterH ((== allowedNick) . view hostNick) $ 
-    view (privmsgMessage . _Wrapped) `on`
-    (echo <|> add <|> zoom _1 count <|> zoom _2 countdown <|> wait)
-  where
-    echo = filterB (== "!!foo") $ message chan "foo"
-    add =
-        parsed addParse $ do
-            (a, b) <- query
-            message chan $ Message . T.pack . show $ a + b
-    count =
-        filterB (== "!!count") $ do
-            i <- get
-            modify succ
-            message chan $ Message . T.pack . show $ i
-    countdown =
-        filterB (== "!!countdown") $ do
-            i <- get
-            modify pred
-            message chan $ Message . T.pack . show $ i
-    wait =
-        filterB (== "!!wait") $ do
-            message chan "waiting for a while"
-            void . async $ do
-                liftIO (threadDelay 10000000)
-                message chan "done waiting"
+{-
+ -bot :: Bot (StateT (Int, Int) IO) Privmsg ()
+ -bot =
+ -    filterH ((== allowedNick) . view hostNick) $ 
+ -    view (privmsgMessage . _Wrapped) `on`
+ -    (echo <|> add <|> zoom _1 count <|> zoom _2 countdown <|> wait)
+ -  where
+ -    echo = filterB (== "!!foo") $ message chan "foo"
+ -    add =
+ -        parsed addParse $ do
+ -            (a, b) <- query
+ -            message chan $ Message . T.pack . show $ a + b
+ -    count =
+ -        filterB (== "!!count") $ do
+ -            i <- get
+ -            modify succ
+ -            message chan $ Message . T.pack . show $ i
+ -    countdown =
+ -        filterB (== "!!countdown") $ do
+ -            i <- get
+ -            modify pred
+ -            message chan $ Message . T.pack . show $ i
+ -    wait =
+ -        filterB (== "!!wait") $ do
+ -            message chan "waiting for a while"
+ -            void . async $ do
+ -                liftIO (threadDelay 10000000)
+ -                message chan "done waiting"
+ -}
