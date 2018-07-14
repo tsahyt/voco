@@ -17,6 +17,7 @@ import GHC.TypeLits
 
 -- | Type synonym for easier use of large nested coproducts
 type (:|:) = Either
+
 infixr 5 :|:
 
 alt31 :: Choice p => p a b -> p (a :|: c :|: d) (b :|: c :|: d)
@@ -93,3 +94,72 @@ alt99 ::
     => p a b
     -> p (c :|: d :|: e :|: f :|: g :|: h :|: i :|: j :|: a) (c :|: d :|: e :|: f :|: g :|: h :|: i :|: j :|: b)
 alt99 = alt88 . right'
+
+either3 :: (a -> x) -> (b -> x) -> (c -> x) -> a :|: b :|: c -> x
+either3 f g h = either f (either g h)
+
+either4 ::
+       (a -> x) -> (b -> x) -> (c -> x) -> (d -> x) -> a :|: b :|: c :|: d -> x
+either4 f g h i = either f (either g (either h i))
+
+either5 ::
+       (a -> x)
+    -> (b -> x)
+    -> (c -> x)
+    -> (d -> x)
+    -> (e -> x)
+    -> a :|: b :|: c :|: d :|: e -> x
+either5 f g h i j = either f (either g (either h (either i j)))
+
+either6 ::
+       (a -> x)
+    -> (b -> x)
+    -> (c -> x)
+    -> (d -> x)
+    -> (e -> x)
+    -> (f -> x)
+    -> a :|: b :|: c :|: d :|: e :|: f -> x
+either6 f g h i j k = either f (either g (either h (either i (either j k))))
+
+either7 ::
+       (a -> x)
+    -> (b -> x)
+    -> (c -> x)
+    -> (d -> x)
+    -> (e -> x)
+    -> (f -> x)
+    -> (g -> x)
+    -> a :|: b :|: c :|: d :|: e :|: f :|: g -> x
+either7 f g h i j k l =
+    either f (either g (either h (either i (either j (either k l)))))
+
+either8 ::
+       (a -> x)
+    -> (b -> x)
+    -> (c -> x)
+    -> (d -> x)
+    -> (e -> x)
+    -> (f -> x)
+    -> (g -> x)
+    -> (h -> x)
+    -> a :|: b :|: c :|: d :|: e :|: f :|: g :|: h -> x
+either8 f g h i j k l m =
+    either f (either g (either h (either i (either j (either k (either l m))))))
+
+either9 ::
+       (a -> x)
+    -> (b -> x)
+    -> (c -> x)
+    -> (d -> x)
+    -> (e -> x)
+    -> (f -> x)
+    -> (g -> x)
+    -> (h -> x)
+    -> (i -> x)
+    -> a :|: b :|: c :|: d :|: e :|: f :|: g :|: h :|: i -> x
+either9 f g h i j k l m n =
+    either
+        f
+        (either
+             g
+             (either h (either i (either j (either k (either l (either m n)))))))
