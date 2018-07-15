@@ -15,15 +15,16 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
+  ghc-options:         -Wall
   exposed-modules:     Control.Monad.Chan
                        Data.Coproduct
                        Network.Voco
-                       Network.Voco.Action
-                       Network.Voco.Bot
                        Network.Voco.Combinators
                        Network.Voco.Common
+                       Network.Voco.Core
                        Network.Voco.IO
                        Network.Voco.Request
+                       Network.Voco.Transmit
   build-depends:       base >= 4.7 && < 5,
                        yak,
                        transformers,

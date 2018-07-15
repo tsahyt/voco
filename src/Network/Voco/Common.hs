@@ -14,8 +14,8 @@ import Control.Monad.Chan
 import Control.Monad.Logger
 import Data.ByteString (ByteString)
 import Data.List.NonEmpty (NonEmpty)
-import Network.Voco.Action
-import Network.Voco.Bot
+import Network.Voco.Transmit
+import Network.Voco.Core
 import Network.Voco.Combinators
 import Network.Yak
 import Network.Yak.Client

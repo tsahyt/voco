@@ -12,6 +12,7 @@ module Network.Voco.Combinators
     , query
     , divide
     , natural
+    , chance
     -- * Asynchronous Bots
     , async
     , async'
@@ -54,10 +55,9 @@ import Data.ByteString (ByteString)
 import Data.Foldable
 import Data.Profunctor
 import Data.Text (Text)
-import Data.Void
-import Network.Voco.Bot
+import Network.Voco.Core
 import Network.Yak
-import Network.Yak.Client (HasChannel(..), HasNick(..))
+import Network.Yak.Client (HasChannel(..))
 import Network.Yak.Responses (RplWelcome)
 
 -- | Transform a bot on some fetchable IRC message (or coproduct thereof) into a

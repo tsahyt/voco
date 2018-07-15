@@ -19,11 +19,11 @@ module Network.Voco.IO
     , TLSSettings(..)
     , ProxySettings(..)
     , HostName
-    , PortNumber(..)
+    , PortNumber
     ) where
 
 import Control.Concurrent (forkIO)
-import Control.Monad (forever, void)
+import Control.Monad (forever)
 import Control.Monad.Chan
 import Control.Monad.IO.Class
 import Control.Natural
@@ -31,14 +31,11 @@ import Data.ByteString (ByteString)
 import Data.Maybe (maybeToList)
 import Data.Monoid
 import Data.Text (Text)
-import Network (HostName, PortNumber(..))
+import Network (HostName, PortNumber)
 import Network.Connection
-import Network.Voco.Bot
-import Network.Voco.Action
-import Network.Voco.Request
+import Network.Voco.Core
 import Network.Yak
 import Network.Yak.Client
-import System.IO
 
 import qualified Data.ByteString as B
 
@@ -54,15 +51,17 @@ botloop' ::
     -> IO ()
 botloop' get send nt bot = do
     chan <- newChan
-    forkIO $ out chan
-    forkIO $ reqs chan
+    _ <- forkIO $ out chan
+    _ <- forkIO $ reqs chan
     nt $$ forever (process chan)
   where
     out chan = do
         x <- readChan chan
-        send . emitSome . getAction $ x
+        case x of
+            IRC m -> send $ emitSome m
+            RunRequest _ _ -> error "Not implemented yet"
         out chan
-    reqs chan = pure ()
+    reqs _chan = pure ()
     process chan = do
         msg <- liftIO $ get
         runBot bot chan msg

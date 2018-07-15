@@ -6,10 +6,11 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GADTs #-}
 
-module Network.Voco.Bot
-    ( Bot
-    -- * Bot Monad
+module Network.Voco.Core
+    ( -- * Bot Monad
+      Bot
     , runBot
     , liftBot
     -- ** Basic Combinators
@@ -19,32 +20,41 @@ module Network.Voco.Bot
     , divide
     , natural
     , async
+    -- * Requests
+    , request
+    , Req
+    , stepReq
+    , recvG
+    -- * Actions
+    , IRCAction(..)
     ) where
 
 import Control.Applicative
 import Control.Category
 import Control.Concurrent.Async (Async)
+import Control.Concurrent.MVar
+import Data.ByteString (ByteString)
 import Control.Monad.Chan
 import Control.Monad.Except
 import Control.Monad.Logger
 import Control.Monad.Random.Class
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Trans
 import Control.Monad.Trans.Maybe
 import Control.Monad.Writer
 import Control.Natural
 import Data.Bifunctor
-import Data.Maybe (maybeToList)
-import Data.Monoid
 import Data.Profunctor
-import Data.Text (Text)
-import Network.Yak (SomeMsg)
-import Network.Voco.Action (Perform(..), IRCAction(..))
-import Network.Voco.Request (Req, stepReq)
+import Network.Yak
+import Network.Voco.Transmit (Transmit(..))
 
 import qualified Control.Concurrent.Async as A
 import Prelude hiding ((.), id)
+
+-- | An IRC action is simply some message that shall be sent back to the server.
+data IRCAction where
+    IRC :: SomeMsg -> IRCAction
+    RunRequest :: MVar a -> Req a -> IRCAction
 
 -- | The bot abstraction provides a composable way to define IRC bots. A bot is
 -- parameterized over three types. 
@@ -166,7 +176,7 @@ instance Monad m => Alternative (Bot m i) where
                 a' <- runMaybeT $ a c i
                 case a' of
                     Nothing -> runMaybeT $ b c i
-                    Just y -> pure a'
+                    Just _ -> pure a'
 
 -- | Collect all non-failing results.
 instance (Monad m, Monoid o) => Monoid (Bot m i o) where
@@ -183,8 +193,11 @@ instance (Monad m, Monoid o) => Monoid (Bot m i o) where
                             Nothing -> pure ares
                             Just bres' -> pure . Just $ ares' <> bres'
 
-instance MonadChan m => Perform (Bot m i) where
-    perform a = Bot $ \c _ -> lift (writeChan c a)
+instance MonadChan m => Transmit (Bot m i) where
+    transmit m = perform (IRC m)
+
+perform :: MonadChan m => IRCAction -> Bot m i ()
+perform a = Bot $ \c _ -> lift (writeChan c a)
 
 -- | 'empty' without the 'Monad' constraint required by '(<|>)'.
 abort :: Applicative m => Bot m i a
@@ -241,5 +254,54 @@ divide f l r =
 -- | Run a 'Req' in a bot. Note that this will block until the 'Req' has been
 -- processed entirely, and should therefore only be used inside an asynchronous
 -- bot. See 'async' for creation of asynchronous bots.
-request :: Req a -> Bot m i o
-request req = undefined
+request :: (MonadIO m, MonadChan m) => Req a -> Bot m i a
+request req = do
+    mvar <- liftIO newEmptyMVar
+    perform $ RunRequest mvar req
+    liftIO $ takeMVar mvar
+
+newtype Req a = Req
+    { stepReq' :: Maybe ByteString -> ReaderT (Chan ByteString) IO (Either (Req a) a)
+    }
+
+instance Transmit Req where
+    transmit m =
+        Req $ \_ -> do
+            chan <- ask
+            writeChan chan (emitSome m)
+            pure (Right ())
+
+instance Functor Req where
+    fmap f r = Req $ \x -> bimap (fmap f) f <$> stepReq' r x
+
+instance Applicative Req where
+    pure = Req . const . pure . pure
+    (<*>) = ap
+
+instance Monad Req where
+    a >>= k =
+        Req $ \x -> do
+            step <- stepReq' a x
+            case step of
+                Left r -> pure . Left $ r >>= k
+                Right a' -> stepReq' (k a') Nothing
+
+-- | Attempt one step on a 'Req', given a channel and a possible input.
+stepReq :: Chan ByteString -> Maybe ByteString -> Req a -> IO (Either (Req a) a)
+stepReq c b req = runReaderT (stepReq' req b) c
+
+-- | Like 'recv' but accepting an additional guard. The request will only
+-- advance when the passed predicate returns true on an acceptable message.
+recvG :: Fetch i => (i -> Bool) -> Req i
+recvG p =
+    Req $ \x ->
+        pure $
+        case x of
+            Nothing -> Left (recvG p)
+            Just x' ->
+                case fetch x' of
+                    Nothing -> Left $ recvG p
+                    Just f ->
+                        if p f
+                            then Right f
+                            else Left (recvG p)

@@ -12,8 +12,6 @@
 module Data.Coproduct where
 
 import Data.Profunctor
-import Data.Proxy
-import GHC.TypeLits
 
 -- | Type synonym for easier use of large nested coproducts
 type (:|:) = Either

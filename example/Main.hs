@@ -6,24 +6,12 @@
 
 module Main where
 
-import Control.Category
-import Control.Lens
-import Control.Concurrent
-import Control.Monad
 import Control.Monad.Logger
 import Control.Monad.State
 import Control.Natural
-import Data.ByteString (ByteString)
 import Data.Monoid
-import Data.Text (Text)
 import Network.Voco
-import Network.Yak.Client
-import Network.Yak.Responses
 import Network.Yak.Types
-
-import qualified Data.Attoparsec.Text as A
-import qualified Data.Text as T
-import Prelude hiding ((.), id)
 
 server :: IRCServer
 server =
