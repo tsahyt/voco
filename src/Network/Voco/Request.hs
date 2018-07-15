@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Network.Voco.Request
     ( Req
@@ -20,6 +21,7 @@ import Control.Monad.Trans.Reader
 import Data.Bifunctor
 import Data.ByteString (ByteString)
 import GHC.TypeLits
+import Network.Voco.Action
 import Network.Yak
 import Network.Yak.Client
 
@@ -28,6 +30,11 @@ import qualified Data.ByteString as B
 newtype Req a = Req
     { stepReq' :: Maybe ByteString -> ReaderT (Chan ByteString) IO (Either (Req a) a)
     }
+
+instance Perform Req where
+    perform x =
+        case getAction x of
+            SomeMsg m -> send m
 
 -- | Attempt one step on a 'Req', given a channel and a possible input.
 stepReq :: Chan ByteString -> Maybe ByteString -> Req a -> IO (Either (Req a) a)
@@ -48,7 +55,8 @@ instance Monad Req where
                 Left r -> pure . Left $ r >>= k
                 Right a' -> stepReq' (k a') Nothing
 
--- | Send a message in a 'Req'.
+-- | Send a message in a 'Req'. Alternatively the 'Perform' instance can be
+-- used to send messages as actions, defined in "Network.Voco.Aciton".
 send :: (KnownSymbol c, Parameter (PList p)) => Msg c p -> Req ()
 send m =
     Req $ \_ -> do
@@ -101,16 +109,11 @@ test = do
     send (build Nothing ["foo!bar@quux"] :: WhoIs)
     ans <- recv
     case ans ^. privmsgMessage of
-        "foo" -> send (build [Left $ Channel "#test"] "foo!" :: Privmsg)
+        "foo" -> message "#test" "foo!"
         "bar" -> do
-            send (build [Left $ Channel "#test"] "bar 1" :: Privmsg)
-            send (build [Left $ Channel "#test"] "bar 2" :: Privmsg)
-            send (build [Left $ Channel "#test"] "bar 3" :: Privmsg)
+            mapM_ @[] (message "#test") ["bar 1", "bar 2", "bar 3"]
             ans1 <- recv
-            send
-                (build [Left $ Channel "#test"] (ans1 ^. privmsgMessage) :: Privmsg)
+            message "#test" (ans1 ^. privmsgMessage)
             ans2 <- recv
-            send
-                (build [Left $ Channel "#test"] (ans2 ^. privmsgMessage) :: Privmsg)
+            message "#test" (ans2 ^. privmsgMessage)
         _ -> pure ()
-

@@ -34,6 +34,7 @@ import Data.Text (Text)
 import Network (HostName, PortNumber(..))
 import Network.Connection
 import Network.Voco.Bot
+import Network.Voco.Action
 import Network.Yak
 import Network.Yak.Client
 import System.IO

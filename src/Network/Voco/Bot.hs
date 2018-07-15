@@ -19,9 +19,6 @@ module Network.Voco.Bot
     , divide
     , natural
     , async
-    -- * IRC Actions
-    , IRCAction(..)
-    , perform
     ) where
 
 import Control.Applicative
@@ -43,14 +40,10 @@ import Data.Monoid
 import Data.Profunctor
 import Data.Text (Text)
 import Network.Yak (SomeMsg)
+import Network.Voco.Action (Perform(..), IRCAction(..))
 
 import qualified Control.Concurrent.Async as A
 import Prelude hiding ((.), id)
-
--- | An IRC action is simply some message that shall be sent back to the server.
--- You generally do not need nor want to construct these values directly. See
--- "Network.Voco.Action".
-newtype IRCAction = IRCAction { getAction :: SomeMsg }
 
 -- | The bot abstraction provides a composable way to define IRC bots. A bot is
 -- parameterized over three types. 
@@ -189,6 +182,9 @@ instance (Monad m, Monoid o) => Monoid (Bot m i o) where
                             Nothing -> pure ares
                             Just bres' -> pure . Just $ ares' <> bres'
 
+instance MonadChan m => Perform (Bot m i) where
+    perform a = Bot $ \c _ -> lift (writeChan c a)
+
 -- | 'empty' without the 'Monad' constraint required by '(<|>)'.
 abort :: Applicative m => Bot m i a
 abort = Bot $ \_ _ -> MaybeT $ pure Nothing
@@ -208,11 +204,6 @@ query = id
 
 natural :: (m :~> n) -> Bot m i o -> Bot n i o
 natural nat b = Bot $ \c i -> MaybeT (nat $$ runBot b c i)
-
--- | Perform an 'IRCAction'. For most uses, the convenience functions in
--- "Network.Voco.Action" are preferable.
-perform :: MonadChan m => IRCAction -> Bot m i ()
-perform a = Bot $ \c _ -> lift (writeChan c a)
 
 -- | Run the sub-bot asynchronously. Note that the sub-bot is run with 'IO' as
 -- its underlying monad. You can use e.g. 'natural' to rebuild some custom

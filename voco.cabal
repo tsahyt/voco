@@ -23,6 +23,7 @@ library
                        Network.Voco.Combinators
                        Network.Voco.Common
                        Network.Voco.IO
+                       Network.Voco.Request
   build-depends:       base >= 4.7 && < 5,
                        yak,
                        transformers,
