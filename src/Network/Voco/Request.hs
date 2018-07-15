@@ -1,0 +1,82 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+module Network.Voco.Request
+    ( Req
+    , stepReq
+    , send
+    , recv
+    , recvG
+    ) where
+
+import Control.Lens
+import Control.Monad
+import Control.Monad.Chan
+import Control.Monad.Trans.Reader
+import Data.Bifunctor
+import Data.ByteString (ByteString)
+import GHC.TypeLits
+import Network.Yak
+import Network.Yak.Client
+
+import qualified Data.ByteString as B
+
+newtype Req a = Req
+    { stepReq' :: ByteString -> ReaderT (Chan ByteString) IO (Either (Req a) a)
+    }
+
+-- | Attempt one step on a 'Req', given a channel and a possible input.
+stepReq :: Chan ByteString -> Maybe ByteString -> Req a -> IO (Either (Req a) a)
+stepReq _ Nothing req = pure (Left req)
+stepReq c (Just b) req = runReaderT (stepReq' req b) c
+
+instance Functor Req where
+    fmap f r = Req $ \x -> bimap (fmap f) f <$> stepReq' r x
+
+instance Applicative Req where
+    pure = Req . const . pure . pure
+    (<*>) = ap
+
+instance Monad Req where
+    a >>= k =
+        Req $ \x -> do
+            step <- stepReq' a x
+            case step of
+                Left r -> pure . Left $ r >>= k
+                Right a' -> stepReq' (k a') x
+
+-- | Send a message in a 'Req'.
+send :: (KnownSymbol c, Parameter (PList p)) => Msg c p -> Req ()
+send m =
+    Req $ \_ -> do
+        chan <- ask
+        writeChan chan (emit m)
+        pure (Right ())
+
+-- | Receive a message of a given type. The function is return type
+-- polymorphic, and only messages that can be parsed into the request type will
+-- further the request!
+recv :: Fetch i => Req i
+recv = recvG (const True)
+
+-- | Like 'recv' but accepting an additional guard. The request will only
+-- advance when the passed predicate returns true on an acceptable message.
+recvG :: Fetch i => (i -> Bool) -> Req i
+recvG p =
+    Req $ \x ->
+        pure $
+        case fetch x of
+            Nothing -> Left $ recvG p
+            Just f ->
+                if p f
+                    then Right f
+                    else Left (recvG p)
+
+test :: Req ()
+test = do
+    send (build Nothing ["foo!bar@quux"] :: WhoIs)
+    ans <- recv
+    case ans ^. privmsgMessage of
+        "foo" -> send (build [Left $ Channel "#test"] "foo!" :: Privmsg)
+        "bar" -> pure ()
