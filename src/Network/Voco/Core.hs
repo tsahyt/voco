@@ -261,14 +261,14 @@ request req = do
     liftIO $ takeMVar mvar
 
 newtype Req a = Req
-    { stepReq' :: Maybe ByteString -> ReaderT (Chan ByteString) IO (Either (Req a) a)
+    { stepReq' :: Maybe ByteString -> ReaderT (Chan IRCAction) IO (Either (Req a) a)
     }
 
 instance Transmit Req where
     transmit m =
         Req $ \_ -> do
             chan <- ask
-            writeChan chan (emitSome m)
+            writeChan chan (IRC m)
             pure (Right ())
 
 instance Functor Req where
@@ -287,7 +287,7 @@ instance Monad Req where
                 Right a' -> stepReq' (k a') Nothing
 
 -- | Attempt one step on a 'Req', given a channel and a possible input.
-stepReq :: Chan ByteString -> Maybe ByteString -> Req a -> IO (Either (Req a) a)
+stepReq :: Chan IRCAction -> Maybe ByteString -> Req a -> IO (Either (Req a) a)
 stepReq c b req = runReaderT (stepReq' req b) c
 
 -- | Like 'recv' but accepting an additional guard. The request will only

@@ -36,7 +36,7 @@ send = transmit . SomeMsg
 recv :: Fetch i => Req i
 recv = recvG (const True)
 
--- | Testing function for 'Req' actions
+-- | Testing function for 'Req' actions.
 testreq :: Req a -> IO a
 testreq req = do
     chan <- newChan
@@ -45,8 +45,8 @@ testreq req = do
     loop r chan
   where
     listen chan = do
-        l <- readChan chan
-        B.putStr l
+        IRC l <- readChan chan
+        B.putStr (emitSome l)
         listen chan
     loop (Left r) chan = do
         l <- B.getLine

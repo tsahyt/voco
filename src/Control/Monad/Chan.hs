@@ -27,68 +27,82 @@ class Monad m => MonadChan m where
     newChan :: m (C.Chan a)
     writeChan :: C.Chan a -> a -> m ()
     readChan :: C.Chan a -> m a
+    dupChan :: C.Chan a -> m (C.Chan a)
 
 instance MonadChan IO where
     newChan = C.newChan
     writeChan = C.writeChan
     readChan = C.readChan
+    dupChan = C.dupChan
 
 instance MonadChan m => MonadChan (ReaderT r m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan
 
 instance MonadChan m => MonadChan (StateT s m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan
 
 instance (Monoid w, MonadChan m) => MonadChan (WriterT w m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan
 
 instance MonadChan m => MonadChan (LoggingT m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan
 
 instance MonadChan m => MonadChan (WriterLoggingT m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan
 
 instance MonadChan m => MonadChan (NoLoggingT m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan
 
 instance MonadChan m => MonadChan (ExceptT e m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan
 
 instance MonadChan m => MonadChan (MaybeT m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan
 
 instance (Monoid w, MonadChan m) => MonadChan (RWST r w s m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan
 
 instance MonadChan m => MonadChan (IdentityT m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan
 
 instance MonadChan m => MonadChan (RL.RandT g m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan
 
 instance MonadChan m => MonadChan (RS.RandT g m) where
     newChan = lift newChan
     writeChan c a = lift $ writeChan c a
     readChan = lift . readChan
+    dupChan = lift . dupChan

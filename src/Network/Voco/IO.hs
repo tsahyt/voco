@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
 module Network.Voco.IO
     ( IRCServer(..)
@@ -23,12 +24,12 @@ module Network.Voco.IO
     ) where
 
 import Control.Concurrent (forkIO)
+import Control.Concurrent.MVar
 import Control.Monad (forever)
 import Control.Monad.Chan
-import Control.Monad.IO.Class
 import Control.Natural
 import Data.ByteString (ByteString)
-import Data.Maybe (maybeToList)
+import Data.Maybe (catMaybes, maybeToList)
 import Data.Monoid
 import Data.Text (Text)
 import Network (HostName, PortNumber)
@@ -39,32 +40,58 @@ import Network.Yak.Client
 
 import qualified Data.ByteString as B
 
+data ReqPair =
+    forall a. ReqPair (Req a)
+                      (MVar a)
+
 -- | Generalized bot loop function, taking a way to read a line from the
 -- network, a way to send a line to the network, a natural transformation from
 -- the underlying monad of 'Bot' to 'IO', as well as a 'Bot' of a suitable type.
 botloop' ::
-       MonadIO m
+       MonadChan m
     => IO ByteString
     -> (ByteString -> IO ())
     -> (m :~> IO)
     -> Bot m ByteString ()
     -> IO ()
 botloop' get send nt bot = do
-    chan <- newChan
-    _ <- forkIO $ out chan
-    _ <- forkIO $ reqs chan
-    nt $$ forever (process chan)
+    inChanB <- newChan
+    inChanR <- dupChan inChanB
+    botChan <- newChan
+    reqs <- newMVar []
+    _ <- forkIO $ listener inChanB
+    _ <- forkIO $ shouter botChan reqs
+    _ <- forkIO $ requests inChanR botChan reqs
+    nt $$ forever (botprocess inChanB botChan)
   where
-    out chan = do
-        x <- readChan chan
-        case x of
-            IRC m -> send $ emitSome m
-            RunRequest _ _ -> error "Not implemented yet"
-        out chan
-    reqs _chan = pure ()
-    process chan = do
-        msg <- liftIO $ get
-        runBot bot chan msg
+    listener chan =
+        forever $ do
+            msg <- get
+            writeChan chan msg
+    shouter chan reqs =
+        forever $ do
+            x <- readChan chan
+            case x of
+                IRC m -> send $ emitSome m
+                RunRequest m r -> modifyMVar_ reqs (pure . (ReqPair r m :))
+    requests inChan botChan rsM =
+        forever $ do
+            msg <- readChan inChan
+            rs <- takeMVar rsM
+            rs' <- catMaybes <$> mapM (processReq botChan msg) rs
+            putMVar rsM rs'
+    botprocess inChan botChan = do
+        msg <- readChan inChan
+        runBot bot botChan msg
+
+processReq :: Chan IRCAction -> ByteString -> ReqPair -> IO (Maybe ReqPair)
+processReq chan inp (ReqPair r m) = do
+    x <- stepReq chan (Just inp) r
+    case x of
+        Left more -> pure $ Just (ReqPair more m)
+        Right res -> do
+            putMVar m res
+            pure Nothing
 
 -- | Bootstrapping messages to be sent to an IRC server.
 bootstrap :: IRCServer -> [ByteString]
@@ -84,14 +111,14 @@ connectIRC server = do
     mapM_ (\x -> connectionPut conn $ x <> "\r\n") (bootstrap server)
     pure conn
 
-botloop :: MonadIO m => IRCServer -> (m :~> IO) -> Bot m ByteString () -> IO ()
+botloop :: MonadChan m => IRCServer -> (m :~> IO) -> Bot m ByteString () -> IO ()
 botloop server nt bot = do
     conn <- connectIRC server
     let get = connectionGetLine 4096 conn
         send x = connectionPut conn (x <> "\r\n")
     botloop' get send nt bot
 
-testloop :: MonadIO m => (m :~> IO) -> Bot m ByteString () -> IO ()
+testloop :: MonadChan m => (m :~> IO) -> Bot m ByteString () -> IO ()
 testloop = botloop' B.getLine (B.putStr . (<> "\r\n"))
 
 -- | Data required to connect to an IRC server
