@@ -5,12 +5,15 @@
 
 module Network.Voco.Request
     ( Req
-    , stepReq
     , send
     , recv
     , recvG
     -- * Testing
     , testreq
+    -- * Low-Level
+    -- | This section is intended only for users who want to implement custom bot
+    -- loops and need to handle 'Req's in some custom way.
+    , stepReq
     ) where
 
 import Control.Concurrent (forkIO)
