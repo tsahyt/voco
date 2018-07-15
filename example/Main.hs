@@ -33,7 +33,7 @@ server =
     }
 
 chan :: Channel
-chan = Channel "#voco-example"
+chan = "#voco-example"
 
 main :: IO ()
 main = 
