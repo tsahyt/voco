@@ -40,8 +40,6 @@ import Network.Yak.Client
 
 import qualified Data.ByteString as B
 
-import Debug.Trace
-
 data ReqPair =
     forall a. ReqPair (Req a)
                       (MVar a)

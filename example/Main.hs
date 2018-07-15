@@ -15,8 +15,6 @@ import Network.Voco
 import Network.Yak.Types
 import Network.Yak.Client
 
-import Debug.Trace
-
 server :: IRCServer
 server =
     IRCServer
@@ -50,8 +48,8 @@ ongoing = every (seconds 3) $ message chan "boop"
 
 interaction :: (MonadChan m, MonadIO m) => Bot m Privmsg ()
 interaction =
-    on (view $ privmsgMessage . _Wrapped) $
+    on (view $ privmsgMessage) $
         filterB (== "!!start") $ asyncV . request $ do
             message chan "will echo back the next statement"
-            msg <- view (privmsgMessage . _Wrapped) <$> recv
-            message chan . Message $ "you said: " <> msg
+            msg <- view (privmsgMessage) <$> recv
+            message chan $ "you said: " <> msg

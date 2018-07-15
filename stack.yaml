@@ -3,4 +3,4 @@ packages:
     - .
 extra-deps:
     - github: tsahyt/yak
-      commit: d5f3307a80ae20714d691039e9d0eb4200a9187b
+      commit: 5873dfbd802d3e83acc79a56b0c3846606cce7cf
