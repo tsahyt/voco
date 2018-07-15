@@ -39,7 +39,8 @@ library
                        lens,
                        attoparsec,
                        async,
-                       connection
+                       connection,
+                       monad-loops
   default-language:    Haskell2010
 
 executable voco-example

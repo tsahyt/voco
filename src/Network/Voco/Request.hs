@@ -2,12 +2,15 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Network.Voco.Request
     ( Req
     , send
     , recv
     , recvG
+    -- * Common Requests
+    , reqNames
     -- * Testing
     , testreq
     -- * Low-Level
@@ -16,12 +19,17 @@ module Network.Voco.Request
     , stepReq
     ) where
 
+import Data.Coproduct
+import Control.Lens (toListOf, to)
 import Control.Concurrent (forkIO)
 import Control.Monad.Chan
+import Control.Monad.Loops
 import GHC.TypeLits
 import Network.Voco.Core
 import Network.Voco.Transmit
 import Network.Yak
+import Network.Yak.Client
+import Network.Yak.Responses
 
 import qualified Data.ByteString as B
 
@@ -53,3 +61,18 @@ testreq req = do
         r' <- stepReq chan (Just l) r
         loop r' chan
     loop (Right r) _ = pure r
+
+reqNames :: Channel -> Req [Nickname]
+reqNames c = do
+    send $ (build [c] :: Names)
+    fmap concat . unfoldM $ do
+        x <- recv :: Req (RplNamreply :|: RplEndofnames)
+        case x of
+            Left names ->
+                pure .
+                Just . toListOf (rplNamreplyNicks . traverse . to getMember) $
+                names
+            Right _ -> pure Nothing
+
+getMember :: Member a -> a
+getMember (Member _ a) = a

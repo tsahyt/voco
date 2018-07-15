@@ -15,6 +15,8 @@ import Network.Voco
 import Network.Yak.Types
 import Network.Yak.Client
 
+import qualified Data.Text as T
+
 server :: IRCServer
 server =
     IRCServer
@@ -38,7 +40,7 @@ main =
     botloop
         server
         (NT $ runStderrLoggingT)
-        (standard [chan] <> logRaw <> irc interaction <> irc ongoing)
+        (standard [chan] <> logRaw <> irc interaction <> irc ongoing <> irc namesBot)
 
 ongoing :: MonadIO m => AutoBot m ()
 ongoing = every (minutes 1) $ message chan "boop"
@@ -49,3 +51,9 @@ interaction =
         message chan "will echo back the next statement"
         msg <- view (privmsgMessage) <$> recv
         message chan $ "you said: " <> msg
+
+namesBot :: MonadIO m => Bot m Privmsg ()
+namesBot =
+    on (view $ privmsgMessage) . filterB (== "!!names") . asyncV $ do
+        nms <- request $ reqNames chan
+        message chan . Message . T.intercalate " " $ nms
