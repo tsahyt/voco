@@ -40,6 +40,8 @@ import Network.Yak.Client
 
 import qualified Data.ByteString as B
 
+import Debug.Trace
+
 data ReqPair =
     forall a. ReqPair (Req a)
                       (MVar a)
@@ -114,7 +116,7 @@ connectIRC server = do
 botloop :: MonadChan m => IRCServer -> (m :~> IO) -> Bot m ByteString () -> IO ()
 botloop server nt bot = do
     conn <- connectIRC server
-    let get = connectionGetLine 4096 conn
+    let get = B.init <$> connectionGetLine 4096 conn
         send x = connectionPut conn (x <> "\r\n")
     botloop' get send nt bot
 

@@ -251,14 +251,20 @@ divide f l r =
         r' <- runBot' r c k
         pure $ l' <> r'
 
+bootstrapReq :: MonadIO m => Req a -> Bot m i (Either (Req a) a)
+bootstrapReq req =
+    Bot $ \c _ -> MaybeT . fmap Just . liftIO . stepReq c Nothing $ req
+
 -- | Run a 'Req' in a bot. Note that this will block until the 'Req' has been
 -- processed entirely, and should therefore only be used inside an asynchronous
 -- bot. See 'async' for creation of asynchronous bots.
 request :: (MonadIO m, MonadChan m) => Req a -> Bot m i a
-request req = do
-    mvar <- liftIO newEmptyMVar
-    perform $ RunRequest mvar req
-    liftIO $ takeMVar mvar
+request req = bootstrapReq req >>= \case
+    Left req' -> do
+        mvar <- liftIO newEmptyMVar
+        perform $ RunRequest mvar req'
+        liftIO $ takeMVar mvar
+    Right a -> pure a
 
 newtype Req a = Req
     { stepReq' :: Maybe ByteString -> ReaderT (Chan IRCAction) IO (Either (Req a) a)

@@ -6,12 +6,16 @@
 
 module Main where
 
+import Control.Lens
 import Control.Monad.Logger
 import Control.Monad.State
 import Control.Natural
 import Data.Monoid
 import Network.Voco
 import Network.Yak.Types
+import Network.Yak.Client
+
+import Debug.Trace
 
 server :: IRCServer
 server =
@@ -39,7 +43,15 @@ main =
     botloop
         server
         (NT $ runStderrLoggingT)
-        (standard [chan] <> logRaw)
+        (standard [chan] <> logRaw <> irc interaction)
 
 ongoing :: MonadIO m => AutoBot m ()
 ongoing = every (seconds 3) $ message chan "boop"
+
+interaction :: (MonadChan m, MonadIO m) => Bot m Privmsg ()
+interaction =
+    on (view $ privmsgMessage . _Wrapped) $
+        filterB (== "!!start") $ asyncV . request $ do
+            message chan "will echo back the next statement"
+            msg <- view (privmsgMessage . _Wrapped) <$> recv
+            message chan . Message $ "you said: " <> msg
