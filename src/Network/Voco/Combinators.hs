@@ -18,6 +18,9 @@ module Network.Voco.Combinators
     , async'
     , asyncV
     , asyncV'
+    -- * Requests
+    , request
+    , request'
     -- * Filtering
     , filterB
     , filterH
@@ -126,6 +129,10 @@ asyncV = void . async
 -- | Voided version of 'async' with a natural transformation.
 asyncV' :: MonadIO m => (n :~> IO) -> Bot n i a -> Bot m i ()
 asyncV' n = void . async' n
+
+-- | > request' = asyncV . request
+request' :: MonadIO m => Req a -> Bot m i ()
+request' = asyncV . request
 
 -- | A synonym for long running bots. These bots are supposed to run
 -- asynchronously, and are built using the 'endless' combinator. They trigger

@@ -45,8 +45,7 @@ ongoing = every (minutes 1) $ message chan "boop"
 
 interaction :: (MonadChan m, MonadIO m) => Bot m Privmsg ()
 interaction =
-    on (view $ privmsgMessage) $
-        filterB (== "!!start") $ asyncV . request $ do
-            message chan "will echo back the next statement"
-            msg <- view (privmsgMessage) <$> recv
-            message chan $ "you said: " <> msg
+    on (view $ privmsgMessage) . filterB (== "!!start") . request' $ do
+        message chan "will echo back the next statement"
+        msg <- view (privmsgMessage) <$> recv
+        message chan $ "you said: " <> msg
