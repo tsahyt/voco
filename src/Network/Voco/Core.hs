@@ -29,6 +29,7 @@ module Network.Voco.Core
     , IRCAction(..)
     ) where
 
+import Control.Arrow
 import Control.Applicative
 import Control.Category
 import Control.Concurrent.Async (Async)
@@ -95,6 +96,23 @@ liftBot x = Bot $ \_ _ -> lift x
 instance Monad m => Category (Bot m) where
     id = Bot $ \_ i -> pure i
     (Bot f) . (Bot g) = Bot $ \c -> g c >=> f c
+
+instance Monad m => Arrow (Bot m) where
+    arr f = query >>= \b -> pure $ f b
+    first = first'
+
+instance Monad m => ArrowZero (Bot m) where
+    zeroArrow = empty
+
+-- | Alternative semantics
+instance Monad m => ArrowPlus (Bot m) where
+    (<+>) = (<|>)
+
+instance Monad m => ArrowChoice (Bot m) where
+    left = left'
+
+instance Monad m => ArrowApply (Bot m) where
+    app = Bot $ \c (bt, b) -> runBot' bt c b
 
 instance Monad m => Applicative (Bot m i) where
     pure x = Bot $ \_ _ -> MaybeT . pure . Just $ x
