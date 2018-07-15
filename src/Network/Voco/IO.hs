@@ -35,6 +35,7 @@ import Network (HostName, PortNumber(..))
 import Network.Connection
 import Network.Voco.Bot
 import Network.Voco.Action
+import Network.Voco.Request
 import Network.Yak
 import Network.Yak.Client
 import System.IO
@@ -54,12 +55,14 @@ botloop' ::
 botloop' get send nt bot = do
     chan <- newChan
     forkIO $ out chan
+    forkIO $ reqs chan
     nt $$ forever (process chan)
   where
     out chan = do
         x <- readChan chan
         send . emitSome . getAction $ x
         out chan
+    reqs chan = pure ()
     process chan = do
         msg <- liftIO $ get
         runBot bot chan msg

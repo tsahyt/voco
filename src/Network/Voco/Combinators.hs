@@ -12,8 +12,11 @@ module Network.Voco.Combinators
     , query
     , divide
     , natural
+    -- * Asynchronous Bots
     , async
     , async'
+    , asyncV
+    , asyncV'
     -- * Filtering
     , filterB
     , filterH
@@ -115,6 +118,14 @@ onChannel p = filterB (all p . toListOf channel)
 -- stack for the asynchronous 'Bot'.
 async' :: MonadIO m => (n :~> IO) -> Bot n i a -> Bot m i (Async (Maybe a))
 async' nt b = async (natural nt b)
+
+-- | Voided version of 'async'
+asyncV :: MonadIO m => Bot IO i a -> Bot m i ()
+asyncV = void . async
+
+-- | Voided version of 'async' with a natural transformation.
+asyncV' :: MonadIO m => (n :~> IO) -> Bot n i a -> Bot m i ()
+asyncV' n = void . async' n
 
 -- | A synonym for long running bots. These bots are supposed to run
 -- asynchronously, and are built using the 'endless' combinator. They trigger

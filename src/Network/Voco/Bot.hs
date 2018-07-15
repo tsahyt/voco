@@ -41,6 +41,7 @@ import Data.Profunctor
 import Data.Text (Text)
 import Network.Yak (SomeMsg)
 import Network.Voco.Action (Perform(..), IRCAction(..))
+import Network.Voco.Request (Req, stepReq)
 
 import qualified Control.Concurrent.Async as A
 import Prelude hiding ((.), id)
@@ -236,3 +237,9 @@ divide f l r =
         l' <- runBot' l c j
         r' <- runBot' r c k
         pure $ l' <> r'
+
+-- | Run a 'Req' in a bot. Note that this will block until the 'Req' has been
+-- processed entirely, and should therefore only be used inside an asynchronous
+-- bot. See 'async' for creation of asynchronous bots.
+request :: Req a -> Bot m i o
+request req = undefined

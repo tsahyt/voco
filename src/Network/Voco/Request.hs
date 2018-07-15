@@ -10,7 +10,7 @@ module Network.Voco.Request
     , recv
     , recvG
     -- * Testing
-    , reqtestloop
+    , testreq
     ) where
 
 import Control.Concurrent (forkIO)
@@ -87,8 +87,8 @@ recvG p =
                             else Left (recvG p)
 
 -- | Testing function for 'Req' actions
-reqtestloop :: Req a -> IO a
-reqtestloop req = do
+testreq :: Req a -> IO a
+testreq req = do
     chan <- newChan
     forkIO $ listen chan
     r <- stepReq chan Nothing req
