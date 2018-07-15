@@ -33,18 +33,15 @@ server =
 chan :: Channel
 chan = Channel "#voco-example"
 
-allowedNick :: Nickname
-allowedNick = "tsahyt"
-
 main :: IO ()
 main = 
     botloop
         server
         (NT $ runStderrLoggingT)
-        (standard [chan] <> logRaw <> irc interaction)
+        (standard [chan] <> logRaw <> irc interaction <> irc ongoing)
 
 ongoing :: MonadIO m => AutoBot m ()
-ongoing = every (seconds 3) $ message chan "boop"
+ongoing = every (minutes 1) $ message chan "boop"
 
 interaction :: (MonadChan m, MonadIO m) => Bot m Privmsg ()
 interaction =
