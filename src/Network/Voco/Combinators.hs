@@ -13,6 +13,7 @@ module Network.Voco.Combinators
     , divide
     , natural
     , chance
+    , answering
     -- * Asynchronous Bots
     , async
     , async'
@@ -45,24 +46,27 @@ module Network.Voco.Combinators
     , asum
     , guard
     , Profunctor(..)
+    , ArrowChoice(..)
     ) where
 
+import Control.Arrow
 import Control.Applicative hiding (WrappedArrow(..))
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (Async)
-import Control.Lens (toListOf, (^.), to)
+import Control.Lens (toListOf, (^.), to, view)
 import Control.Monad (forever, guard, void)
 import Control.Monad.IO.Class
 import Control.Monad.Random.Class
 import Control.Natural
 import Data.Attoparsec.Text (Parser, parseOnly)
 import Data.ByteString (ByteString)
+import Data.Coproduct
 import Data.Foldable
 import Data.Profunctor
 import Data.Text (Text)
 import Network.Voco.Core
 import Network.Yak
-import Network.Yak.Client (HasChannel(..), Privmsg, privmsgTargets)
+import Network.Yak.Client
 import Network.Yak.Responses (RplWelcome)
 
 import qualified Data.List.NonEmpty as N
@@ -89,6 +93,24 @@ chance p b = do
     x <- getRandomR (0, 1)
     guard (x <= p)
     b
+
+-- | A combinator for answering 'Privmsg's and 'Notice's. Expects a function
+-- that is given a target, which can be used with one of the 'message'
+-- variants.
+answering ::
+       Monad m
+    => (Either Channel Nickname -> Bot m Message o)
+    -> Bot m (Privmsg :|: Notice) o
+answering b = privmsg ||| notice
+  where
+    privmsg = do
+        i <- query
+        let target = i ^. privmsgTargets . to N.head
+        on (view privmsgMessage) (b target)
+    notice = do
+        i <- query
+        let target = i ^. noticeTargets . to N.head
+        on (view noticeMessage) (b target)
 
 -- | Filter a bot based on a predicate on the input.
 filterB :: Monad m => (i -> Bool) -> Bot m i o -> Bot m i o
