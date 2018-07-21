@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Network.Voco.Request
     ( Req
@@ -10,7 +11,8 @@ module Network.Voco.Request
     , recv
     , recvG
     -- * Common Requests
-    , reqNames
+    , names
+    , userhost
     -- * Testing
     , testreq
     -- * Low-Level
@@ -20,10 +22,11 @@ module Network.Voco.Request
     ) where
 
 import Data.Coproduct
-import Control.Lens (toListOf, to)
+import Control.Lens (toListOf, firstOf)
 import Control.Concurrent (forkIO)
 import Control.Monad.Chan
 import Control.Monad.Loops
+import Data.Maybe (fromJust)
 import GHC.TypeLits
 import Network.Voco.Core
 import Network.Voco.Transmit
@@ -62,17 +65,20 @@ testreq req = do
         loop r' chan
     loop (Right r) _ = pure r
 
-reqNames :: Channel -> Req [Nickname]
-reqNames c = do
+-- | Request all nicknames in a given 'Channel'
+names :: Channel -> Req [Nickname]
+names c = do
     send $ (build [c] :: Names)
     fmap concat . unfoldM $ do
         x <- recv :: Req (RplNamreply :|: RplEndofnames)
         case x of
-            Left names ->
+            Left ns ->
                 pure .
-                Just . toListOf (rplNamreplyNicks . traverse . to getMember) $
-                names
+                Just . toListOf (rplNamreplyNicks . traverse . memberData) $
+                ns
             Right _ -> pure Nothing
 
-getMember :: Member a -> a
-getMember (Member _ a) = a
+userhost :: Nickname -> Req UReply
+userhost n = do
+    send $ (build n Nothing Nothing Nothing Nothing :: Userhost)
+    fromJust . firstOf (rplUserhostReplies . traverse) <$> recv
