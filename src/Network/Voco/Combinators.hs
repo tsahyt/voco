@@ -25,6 +25,7 @@ module Network.Voco.Combinators
     , filterB
     , filterH
     , filterM
+    , inQuery
     , onChannel
     -- * Self-Running Bots
     , AutoBot
@@ -48,7 +49,7 @@ module Network.Voco.Combinators
 import Control.Applicative hiding (WrappedArrow(..))
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (Async)
-import Control.Lens (toListOf)
+import Control.Lens (toListOf, (^.), to)
 import Control.Monad (forever, guard, void)
 import Control.Monad.IO.Class
 import Control.Monad.Random.Class
@@ -60,8 +61,10 @@ import Data.Profunctor
 import Data.Text (Text)
 import Network.Voco.Core
 import Network.Yak
-import Network.Yak.Client (HasChannel(..))
+import Network.Yak.Client (HasChannel(..), Privmsg, privmsgTargets)
 import Network.Yak.Responses (RplWelcome)
+
+import qualified Data.List.NonEmpty as N
 
 -- | Transform a bot on some fetchable IRC message (or coproduct thereof) into a
 -- bot on 'ByteString', i.e. on raw IRC input.
@@ -109,6 +112,19 @@ filterM p b = do
     x <- liftBot $ p i
     guard x
     b
+
+-- | Combinator guarding bots responding to Privmsg for those messages to
+-- happen in a query, i.e. as a personal message. If the incoming message is a
+-- PM, the given bot will be called with the incoming host as an argument.
+inQuery :: Monad m => (Host -> Bot m Privmsg o) -> Bot m Privmsg o
+inQuery b = do
+    i <- query
+    case i ^. privmsgTargets . to N.head of
+        Left _ -> empty
+        Right _ ->
+            case msgPrefix i of
+                Just (PrefixUser x) -> b x
+                _ -> empty
 
 -- | Filter input on 'Channel's, convience function using 'filterB'. Messages
 -- containing multiple channels will need to match the predicate for /all/

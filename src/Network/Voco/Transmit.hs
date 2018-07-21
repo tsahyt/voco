@@ -12,6 +12,7 @@ module Network.Voco.Transmit
     , nickservIdentify
     , message
     , messageUser
+    , message'
     , notice
     , noticeUser
     , join
@@ -44,11 +45,14 @@ pass p = transmit $ SomeMsg (build p :: Pass)
 nickservIdentify :: Transmit m => Text -> m ()
 nickservIdentify p = messageUser "NickServ" (Message $ "IDENTIFY " <> p)
 
+message' :: Transmit m => Either Channel Nickname -> Message -> m ()
+message' t m = transmit $ SomeMsg (build [t] m :: Privmsg)
+
 message :: Transmit m => Channel -> Message -> m ()
-message c m = transmit $ SomeMsg (build [Left c] m :: Privmsg)
+message c m = message' (Left c) m
 
 messageUser :: Transmit m => Nickname -> Message -> m ()
-messageUser n m = transmit $ SomeMsg (build [Right n] m :: Privmsg)
+messageUser n m = message' (Right n) m
 
 notice :: Transmit m => Channel -> Message -> m ()
 notice c m = transmit $ SomeMsg (build [Left c] m :: Notice)
