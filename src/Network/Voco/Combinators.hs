@@ -26,6 +26,7 @@ module Network.Voco.Combinators
     , filterH
     , filterM
     , inQuery
+    , inChannel
     , onChannel
     -- * Self-Running Bots
     , AutoBot
@@ -125,6 +126,15 @@ inQuery b = do
             case msgPrefix i of
                 Just (PrefixUser x) -> b x
                 _ -> empty
+
+-- | Like 'inQuery' but for channels, i.e. 'Privmsg' bots that only fire in
+-- channels.
+inChannel :: Monad m => (Channel -> Bot m Privmsg o) -> Bot m Privmsg o
+inChannel b = do
+    i <- query
+    case i ^. privmsgTargets . to N.head of
+        Left chan -> b chan
+        Right _ -> empty
 
 -- | Filter input on 'Channel's, convience function using 'filterB'. Messages
 -- containing multiple channels will need to match the predicate for /all/

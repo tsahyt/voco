@@ -36,21 +36,23 @@ chan :: Channel
 chan = "#voco-example"
 
 main :: IO ()
-main = 
+main =
     botloop
         server
         (NT $ runStderrLoggingT)
-        (standard [chan] <> logRaw <> irc interaction <> irc ongoing <> irc namesBot <> irc userhostBot)
+        (standard [chan] <> logRaw <> irc interaction <> irc ongoing <>
+         irc namesBot <>
+         irc userhostBot)
 
 ongoing :: MonadIO m => AutoBot m ()
 ongoing = every (minutes 1) $ message chan "boop"
 
 interaction :: (MonadChan m, MonadIO m) => Bot m Privmsg ()
-interaction =
+interaction = inQuery $ \u ->
     on (view $ privmsgMessage) . filterB (== "!!start") . request' $ do
-        message chan "will echo back the next statement"
+        messageUser (u ^. hostNick) "will echo back the next statement"
         msg <- view (privmsgMessage) <$> recv
-        message chan $ "you said: " <> msg
+        messageUser (u ^. hostNick) $ "you said: " <> msg
 
 namesBot :: MonadIO m => Bot m Privmsg ()
 namesBot =
