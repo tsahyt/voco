@@ -111,11 +111,13 @@ connectIRC server = do
     mapM_ (\x -> connectionPut conn $ x <> "\r\n") (bootstrap server)
     pure conn
 
+-- | A bot loop working with an 'IRCServer'. Outgoing messages are limited to
+-- 512 bytes, since that is the maximum most servers support.
 botloop :: MonadChan m => IRCServer -> (m :~> IO) -> Bot m ByteString () -> IO ()
 botloop server nt bot = do
     conn <- connectIRC server
     let get = B.init <$> connectionGetLine 4096 conn
-        send x = connectionPut conn (x <> "\r\n")
+        send x = connectionPut conn (B.take 512 $ x <> "\r\n")
     botloop' get send nt bot
 
 testloop :: MonadChan m => (m :~> IO) -> Bot m ByteString () -> IO ()
