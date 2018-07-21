@@ -6,6 +6,7 @@
 module Network.Voco.Combinators
     ( irc
     , parsed
+    , parsedMsg
     , on
     , abort
     , refine
@@ -53,7 +54,7 @@ import Control.Arrow
 import Control.Applicative hiding (WrappedArrow(..))
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (Async)
-import Control.Lens (toListOf, (^.), to, view)
+import Control.Lens (toListOf, (^.), to, view, _Wrapped)
 import Control.Monad (forever, guard, void)
 import Control.Monad.IO.Class
 import Control.Monad.Random.Class
@@ -79,6 +80,10 @@ irc = refine fetch
 -- | Precompose a bot with an "attoparsec" parser.
 parsed :: Applicative m => Parser i -> Bot m i o -> Bot m Text o
 parsed p = refine (either (const Nothing) Just . parseOnly p)
+
+-- | Like 'parsed' but parsing a 'Message'
+parsedMsg :: Applicative m => Parser i -> Bot m i o -> Bot m Message o
+parsedMsg p b = on (view _Wrapped) (parsed p b)
 
 -- | Synonym for 'lmap'.
 on :: Functor m => (i' -> i) -> Bot m i o -> Bot m i' o
