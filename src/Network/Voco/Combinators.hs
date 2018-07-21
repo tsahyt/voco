@@ -14,7 +14,11 @@ module Network.Voco.Combinators
     , divide
     , natural
     , chance
+    -- * Convenience combinators
+    -- ** Answering
     , answering
+    , answeringP
+    , answeringN
     -- * Asynchronous Bots
     , async
     , async'
@@ -106,16 +110,27 @@ answering ::
        Monad m
     => (Either Channel Nickname -> Bot m Message o)
     -> Bot m (Privmsg :|: Notice) o
-answering b = privmsg ||| notice
-  where
-    privmsg = do
-        i <- query
-        let target = i ^. privmsgTargets . to N.head
-        on (view privmsgMessage) (b target)
-    notice = do
-        i <- query
-        let target = i ^. noticeTargets . to N.head
-        on (view noticeMessage) (b target)
+answering b = answeringP b ||| answeringN b
+
+-- | Like 'answering' but responding only to 'Privmsg'
+answeringP ::
+       Monad m
+    => (Either Channel Nickname -> Bot m Message o)
+    -> Bot m Privmsg o
+answeringP b = do
+    i <- query
+    let target = i ^. privmsgTargets . to N.head
+    on (view privmsgMessage) (b target)
+
+-- | Like 'answering' but responding only to 'Notice'
+answeringN ::
+       Monad m
+    => (Either Channel Nickname -> Bot m Message o)
+    -> Bot m Notice o
+answeringN b = do
+    i <- query
+    let target = i ^. noticeTargets . to N.head
+    on (view noticeMessage) (b target)
 
 -- | Filter a bot based on a predicate on the input.
 filterB :: Monad m => (i -> Bool) -> Bot m i o -> Bot m i o
