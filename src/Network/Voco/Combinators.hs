@@ -24,6 +24,7 @@ module Network.Voco.Combinators
     , async'
     , asyncV
     , asyncV'
+    , timeoutV
     -- * Requests
     , request
     , request'
@@ -57,7 +58,7 @@ module Network.Voco.Combinators
 import Control.Arrow
 import Control.Applicative hiding (WrappedArrow(..))
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async (Async)
+import Control.Concurrent.Async (Async, waitEither_)
 import Control.Lens (toListOf, (^.), to, view, _Wrapped)
 import Control.Monad (forever, guard, void)
 import Control.Monad.IO.Class
@@ -197,6 +198,12 @@ asyncV = void . async
 -- | Voided version of 'async' with a natural transformation.
 asyncV' :: MonadIO m => (n :~> IO) -> Bot n i a -> Bot m i ()
 asyncV' n = void . async' n
+
+-- | Register a timeout for a given async computation.
+timeoutV :: MonadIO m => TimeSpec -> Async a -> Bot m i ()
+timeoutV (TimeSpec µs) a = do
+    b <- async $ liftIO (threadDelay µs)
+    liftIO $ waitEither_ b a
 
 -- | > request' = asyncV . request
 request' :: MonadIO m => Req a -> Bot m i ()
