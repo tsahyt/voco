@@ -203,7 +203,7 @@ asyncV' n = void . async' n
 timeoutV :: MonadIO m => TimeSpec -> Async a -> Bot m i ()
 timeoutV (TimeSpec µs) a = do
     b <- async $ liftIO (threadDelay µs)
-    liftIO $ waitEither_ b a
+    liftIO $ waitAnyCancel [b,a]
 
 -- | > request' = asyncV . request
 request' :: MonadIO m => Req a -> Bot m i ()
