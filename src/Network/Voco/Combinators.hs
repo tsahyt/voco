@@ -58,7 +58,7 @@ module Network.Voco.Combinators
 import Control.Arrow
 import Control.Applicative hiding (WrappedArrow(..))
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async (Async, waitEither_)
+import Control.Concurrent.Async (Async, waitAnyCancel)
 import Control.Lens (toListOf, (^.), to, view, _Wrapped)
 import Control.Monad (forever, guard, void)
 import Control.Monad.IO.Class
@@ -203,7 +203,7 @@ asyncV' n = void . async' n
 timeoutV :: MonadIO m => TimeSpec -> Async a -> Bot m i ()
 timeoutV (TimeSpec µs) a = do
     b <- async $ liftIO (threadDelay µs)
-    liftIO $ waitAnyCancel [b,a]
+    liftIO . void $ waitAnyCancel [() <$ b, void a]
 
 -- | > request' = asyncV . request
 request' :: MonadIO m => Req a -> Bot m i ()
