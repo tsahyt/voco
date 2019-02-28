@@ -196,10 +196,8 @@ instance Monad m => Alternative (Bot m i) where
                     Nothing -> runMaybeT $ b c i
                     Just _ -> pure a'
 
--- | Collect all non-failing results.
-instance (Monad m, Monoid o) => Monoid (Bot m i o) where
-    mempty = empty
-    mappend a b =
+instance (Monad m, Semigroup o) => Semigroup (Bot m i o) where
+    a <> b =
         Bot $ \c i ->
             MaybeT $ do
                 ares <- runBot a c i
@@ -210,6 +208,11 @@ instance (Monad m, Monoid o) => Monoid (Bot m i o) where
                         case bres of
                             Nothing -> pure ares
                             Just bres' -> pure . Just $ ares' <> bres'
+
+-- | Collect all non-failing results.
+instance (Monad m, Monoid o) => Monoid (Bot m i o) where
+    mempty = empty
+    mappend = (<>)
 
 instance MonadChan m => Transmit (Bot m i) where
     transmit m = perform (IRC m)

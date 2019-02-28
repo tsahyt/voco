@@ -25,7 +25,6 @@ module Network.Voco.Transmit
     ) where
 
 import Data.Text (Text)
-import Data.Monoid
 import Data.List.NonEmpty
 import Network.Yak.Client hiding (nick)
 import Network.Yak.Types

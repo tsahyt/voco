@@ -12,7 +12,6 @@ module Network.Voco.Request
     , recvG
     -- * Common Requests
     , names
-    , userhost
     -- * Testing
     , testreq
     -- * Low-Level
@@ -22,11 +21,10 @@ module Network.Voco.Request
     ) where
 
 import Data.Coproduct
-import Control.Lens (toListOf, firstOf)
+import Control.Lens (toListOf)
 import Control.Concurrent (forkIO)
 import Control.Monad.Chan
 import Control.Monad.Loops
-import Data.Maybe (fromJust)
 import GHC.TypeLits
 import Network.Voco.Core
 import Network.Voco.Transmit
@@ -77,8 +75,3 @@ names c = do
                 Just . toListOf (rplNamreplyNicks . traverse . memberData) $
                 ns
             Right _ -> pure Nothing
-
-userhost :: Nickname -> Req UReply
-userhost n = do
-    send $ (build n Nothing Nothing Nothing Nothing :: Userhost)
-    fromJust . firstOf (rplUserhostReplies . traverse) <$> recv

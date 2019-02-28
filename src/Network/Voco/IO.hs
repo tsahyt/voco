@@ -30,9 +30,8 @@ import Control.Monad.Chan
 import Control.Natural
 import Data.ByteString (ByteString)
 import Data.Maybe (catMaybes, maybeToList)
-import Data.Monoid
 import Data.Text (Text)
-import Network (HostName, PortNumber)
+import Network.Socket (HostName, PortNumber)
 import Network.Connection
 import Network.Voco.Core
 import Network.Yak

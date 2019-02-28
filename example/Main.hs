@@ -10,7 +10,6 @@ import Control.Lens
 import Control.Monad.Logger
 import Control.Monad.State
 import Control.Natural
-import Data.Monoid
 import Network.Voco
 import Network.Yak.Types
 import Network.Yak.Client
@@ -41,8 +40,7 @@ main =
         server
         (NT $ runStderrLoggingT)
         (standard [chan] <> logRaw <> irc interaction <> irc ongoing <>
-         irc namesBot <>
-         irc userhostBot)
+         irc namesBot)
 
 ongoing :: MonadIO m => AutoBot m ()
 ongoing = every (minutes 1) $ message chan "boop"
@@ -59,10 +57,3 @@ namesBot =
     on (view $ privmsgMessage) . filterB (== "!!names") . asyncV $ do
         nms <- request $ names chan
         message chan . Message . T.intercalate " " $ nms
-
-userhostBot :: (MonadChan m, MonadIO m) => Bot m Privmsg ()
-userhostBot =
-    on (view $ privmsgMessage . _Wrapped) . filterB ("!!host " `T.isPrefixOf`) $ do
-        i <- query
-        uh <- request . userhost $ T.drop 7 i
-        message chan . Message . T.pack . show $ uh
